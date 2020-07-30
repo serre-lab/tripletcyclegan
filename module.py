@@ -18,6 +18,52 @@ def _get_norm_layer(norm):
         return keras.layers.LayerNormalization
 
 
+def Resnet50Classifier(input_shape=(256, 256, 3)):
+    base_model = keras.applications.ResNet50(
+    include_top=False, weights='imagenet', input_shape=input_shape,
+    pooling='avg')
+
+    x = base_model.output
+    x = keras.layers.Dense(512,activation='relu')(x)
+    x = keras.layers.Dropout(0.3)(x)
+    predictions = keras.layers.Dense(num_classes,activation='softmax')(x)
+
+    model = keras.Model(inputs=base_model.input, outputs=predictions)
+
+    for i,layer in enumerate(base_model.layers[-7:]):
+        layer.trainable = True
+    
+
+    model.compile(loss='binary_crossentropy',
+              optimizer=Adam(lr=0.0001),
+              metrics=['accuracy'])
+
+    return model
+
+def Resnet50embeddings(input_shape=(256, 256, 3),embedding_size=256):
+
+
+    base_model = keras.applications.ResNet50( include_top=False, weights='imagenet', input_shape=input_shape, pooling='avg')
+    x = base_model.output
+    #x = keras.layers.Dense(512,activation='relu')(x)
+    #x = keras.layers.Dropout(0.1)(x)
+    x = keras.layers.Dense(512,activation='relu')(x)
+    x = keras.layers.Dropout(0.1)(x)
+    x = keras.layers.Dense(embedding_size)(x)
+    x = tf.keras.backend.l2_normalize(x)
+    #x = keras.layers.Dropout(0.3)(x)
+    #predictions = keras.layers.Dense(num_classes,activation='softmax')(x)
+
+    model = keras.Model(inputs=base_model.input, outputs=x)
+
+    for i,layer in enumerate(base_model.layers[-20:]):
+        layer.trainable = True
+    
+    return model
+
+
+
+
 def ResnetGenerator(input_shape=(256, 256, 3),
                     output_channels=3,
                     dim=64,

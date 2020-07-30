@@ -13,6 +13,7 @@ import data
 import module
 import neptune 
 import os 
+import tensorflow_addons as tfa
 
 
 os.environ["CUDA_VISIBLE_DEVICES"] = '2,3'
@@ -31,8 +32,9 @@ py.arg('--test_datasetA', default='/users/irodri15/scratch/Fossils/Experiments/s
 py.arg('--test_datasetB', default='/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_leaves.csv')
 py.arg('--experiment_name')
 py.arg('--load_size', type=int, default=300)  # load image to this size
-py.arg('--crop_size', type=int, default=298)  # then crop to this size
-py.arg('--batch_size', type=int, default=2)
+py.arg('--crop_size', type=int, default=300)  # then crop to this size
+py.arg('--batch_size', type=int, default=10)
+py.arg('--batch_size_triplet', type=int, default=20)
 py.arg('--epochs', type=int, default=10)
 py.arg('--epoch_decay', type=int, default=50)  # epoch to start decaying learning rate
 py.arg('--lr', type=float, default=0.0002)
@@ -42,6 +44,7 @@ py.arg('--gradient_penalty_mode', default='none', choices=['none', 'dragan', 'wg
 py.arg('--gradient_penalty_weight', type=float, default=10.0)
 py.arg('--cycle_loss_weight', type=float, default=10.0)
 py.arg('--identity_loss_weight', type=float, default=0.0)
+py.arg('--triplet_loss_weight', type=float, default=0.3)
 py.arg('--pool_size', type=int, default=50)  # pool size to store fake samples
 py.arg('--grayscale',type=bool,default= False)
 args = py.args()
@@ -64,9 +67,16 @@ A = pd.read_csv(args.train_datasetA)
 B = pd.read_csv(args.train_datasetB)
 print(B)
 A_img_paths = list(A['file_name']) #py.glob(py.join(args.datasets_dir, args.dataset, 'trainA'), '*.jpg')
+A_labels = list(A['label'])
 print(type(A_img_paths[0]))
 B_img_paths = list(B['file_name'])#py.glob(py.join(args.datasets_dir, args.dataset, 'trainB'), '*.jpg')
-A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False,shuffle=False,grayscale=args.grayscale)
+B_labels = list(B['label'])
+A_B_dataset, len_dataset = data.make_zip_dataset2(A_img_paths,A_labels, B_img_paths,B_labels, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False,shuffle=False,grayscale=args.grayscale)
+
+
+
+
+
 
 A2B_pool = data.ItemPool(args.pool_size)
 B2A_pool = data.ItemPool(args.pool_size)
@@ -75,8 +85,14 @@ B2A_pool = data.ItemPool(args.pool_size)
 A_test = pd.read_csv(args.test_datasetA)
 B_test = pd.read_csv(args.test_datasetB)
 A_img_paths_test = list(A_test['file_name'])#py.glob(py.join(args.datasets_dir, args.dataset, 'testA'), '*.jpg')
+A_test_labels = list(A_test['label'])
 B_img_paths_test = list(B_test['file_name'])#py.glob(py.join(args.datasets_dir, args.dataset, 'testB'), '*.jpg')
-A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, args.batch_size, args.load_size, args.crop_size, training=False, grayscale=args.grayscale, repeat=True)
+B_test_labels = list(B_test['label'])
+A_B_dataset_test, _ = data.make_zip_dataset2(A_img_paths_test,A_test_labels, B_img_paths_test,B_test_labels, args.batch_size, args.load_size, args.crop_size, training=False, grayscale=args.grayscale, repeat=True)
+
+
+
+A_B_dataset_triplet, len_dataset = data.make_zip_dataset_triplet(A_img_paths,A_labels, B_img_paths,B_labels, args.batch_size_triplet, args.load_size, args.crop_size, training=True, repeat=False,shuffle=True,grayscale=args.grayscale)
 
 
 # ==============================================================================
@@ -89,15 +105,21 @@ G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
 D_A = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
 D_B = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
 
+
+T = module.Resnet50embeddings(input_shape=(args.crop_size, args.crop_size, 3),embedding_size=256)
+
 d_loss_fn, g_loss_fn = gan.get_adversarial_losses_fn(args.adversarial_loss_mode)
 cycle_loss_fn = tf.losses.MeanAbsoluteError()
 identity_loss_fn = tf.losses.MeanAbsoluteError()
+#triplet_loss_fn = tf.losses.MeanAbsoluteError()
 #classification_loss_fn = tf.losses.BCE
 
 G_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
 D_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
+T_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
 G_optimizer = keras.optimizers.Adam(learning_rate=G_lr_scheduler, beta_1=args.beta_1)
 D_optimizer = keras.optimizers.Adam(learning_rate=D_lr_scheduler, beta_1=args.beta_1)
+T_optimizer = keras.optimizers.Adam(learning_rate=T_lr_scheduler, beta_1=args.beta_1)
 
 
 # ==============================================================================
@@ -105,7 +127,7 @@ D_optimizer = keras.optimizers.Adam(learning_rate=D_lr_scheduler, beta_1=args.be
 # ==============================================================================
 
 @tf.function
-def train_G(A, B):
+def train_G(A, B,A_triplet,B_triplet):
     with tf.GradientTape() as t:
         A2B = G_A2B(A, training=True)
         B2A = G_B2A(B, training=True)
@@ -113,6 +135,16 @@ def train_G(A, B):
         B2A2B = G_A2B(B2A, training=True)
         A2A = G_B2A(A, training=True)
         B2B = G_A2B(B, training=True)
+        A2B_triplet = G_A2B(A_triplet[0],training=True)
+        B2A_triplet = G_B2A(B_triplet[0],training=True)
+        TA = T(A_triplet[0])
+        TB = T(B_triplet[0])
+        TA2B = T(A2B_triplet)
+        TB2A = T(B2A_triplet)
+        triplet_a_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA)
+        triplet_b_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB)
+        triplet_a2b_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA2B)
+        triplet_b2a_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB2A)
 
         A2B_d_logits = D_B(A2B, training=True)
         B2A_d_logits = D_A(B2A, training=True)
@@ -123,8 +155,8 @@ def train_G(A, B):
         B2A2B_cycle_loss = cycle_loss_fn(B, B2A2B)
         A2A_id_loss = identity_loss_fn(A, A2A)
         B2B_id_loss = identity_loss_fn(B, B2B)
-
-        G_loss = (A2B_g_loss + B2A_g_loss) + (A2B2A_cycle_loss + B2A2B_cycle_loss) * args.cycle_loss_weight + (A2A_id_loss + B2B_id_loss) * args.identity_loss_weight
+        
+        G_loss = (A2B_g_loss + B2A_g_loss) + (A2B2A_cycle_loss + B2A2B_cycle_loss) * args.cycle_loss_weight + (A2A_id_loss + B2B_id_loss) * args.identity_loss_weight + (triplet_a_loss + triplet_b_loss + triplet_a2b_loss +triplet_b2a_loss)*0.25* args.triplet_loss_weight
 
     G_grad = t.gradient(G_loss, G_A2B.trainable_variables + G_B2A.trainable_variables)
     G_optimizer.apply_gradients(zip(G_grad, G_A2B.trainable_variables + G_B2A.trainable_variables))
@@ -134,7 +166,12 @@ def train_G(A, B):
                       'A2B2A_cycle_loss': A2B2A_cycle_loss,
                       'B2A2B_cycle_loss': B2A2B_cycle_loss,
                       'A2A_id_loss': A2A_id_loss,
-                      'B2B_id_loss': B2B_id_loss}
+                      'B2B_id_loss': B2B_id_loss,
+                      'TA_loss':triplet_a_loss,
+                      'TB_loss':triplet_b_loss,
+                      'TA2B_loss':triplet_a2b_loss,
+                      'TB2A_loss':triplet_b2a_loss,
+                      'G_loss':G_loss }
 
 
 @tf.function
@@ -160,9 +197,37 @@ def train_D(A, B, A2B, B2A):
             'D_A_gp': D_A_gp,
             'D_B_gp': D_B_gp}
 
+@tf.function
+def train_T(A_triplet,B_triplet):
+    with tf.GradientTape() as t:
 
-def train_step(A, B):
-    A2B, B2A, G_loss_dict = train_G(A, B)
+        TA = T(A_triplet[0],training=True)
+        TB = T(B_triplet[0],training=True)
+        A2B_triplet = G_A2B(A_triplet[0])
+        B2A_triplet = G_B2A(A_triplet[0])
+        TA2B = T(A2B_triplet)
+        TB2A = T(B2A_triplet)
+        triplet_a_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA)
+        triplet_b_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB)
+        triplet_a2b_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA2B)
+        triplet_b2a_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB2A)
+
+        T_loss = triplet_a_loss + triplet_b_loss +triplet_a2b_loss + triplet_b2a_loss
+    T_grad = t.gradient(T_loss,T.trainable_variables)
+    T_optimizer.apply_gradients(zip(T_grad,T.trainable_variables))
+        
+    return {'T_A_loss': triplet_a_loss,
+            'T_B_loss': triplet_b_loss,
+            'T_A2B_loss': triplet_a2b_loss,
+            'T_B2A_loss': triplet_b2a_loss
+            }
+
+
+def train_step(A, B,A_triplet,B_triplet):
+
+
+    A2B, B2A, G_loss_dict = train_G(A, B,A_triplet,B_triplet)
+
 
     # cannot autograph `A2B_pool`
     A2B = A2B_pool(A2B)  # or A2B = A2B_pool(A2B.numpy()), but it is much slower
@@ -170,7 +235,10 @@ def train_step(A, B):
 
     D_loss_dict = train_D(A, B, A2B, B2A)
 
-    return G_loss_dict, D_loss_dict
+    T_loss_dict = train_T(A_triplet,B_triplet)
+
+
+    return G_loss_dict, D_loss_dict,T_loss_dict
 
 
 @tf.function
@@ -209,6 +277,7 @@ train_summary_writer = tf.summary.create_file_writer(py.join(output_dir, 'summar
 
 # sample
 test_iter = iter(A_B_dataset_test)
+train_triplet_iter = iter(A_B_dataset_triplet)
 sample_dir = py.join(output_dir, 'samples_training')
 py.mkdir(sample_dir)
 
@@ -223,17 +292,24 @@ with train_summary_writer.as_default():
 
         # train for an epoch
         for A, B in tqdm.tqdm(A_B_dataset, desc='Inner Epoch Loop', total=len_dataset):
-            G_loss_dict, D_loss_dict = train_step(A, B)
+            A_triplet, B_triplet = next(train_triplet_iter)
+            
+            G_loss_dict, D_loss_dict,T_loss_dict = train_step(A[0][:2], B[0][:2],A_triplet,B_triplet)
+            
             ## Logging to neptune
             for k in  G_loss_dict : neptune.log_metric(k,G_loss_dict[k])
             for k in  D_loss_dict : neptune.log_metric(k,D_loss_dict[k])
+            for k in  T_loss_dict : neptune.log_metric(k,T_loss_dict[k])
             # # summary
             tl.summary(G_loss_dict, step=G_optimizer.iterations, name='G_losses')
             tl.summary(D_loss_dict, step=G_optimizer.iterations, name='D_losses')
+            tl.summary(T_loss_dict, step=T_optimizer.iterations, name='T_losses')
             tl.summary({'learning rate': G_lr_scheduler.current_learning_rate}, step=G_optimizer.iterations, name='learning rate')
 
+
+
             # sample
-            if G_optimizer.iterations.numpy() % 100 == 0:
+            if G_optimizer.iterations.numpy() % 20 == 0:
                 A, B = next(test_iter)
                 A2B, B2A, A2B2A, B2A2B = sample(A, B)
                 img = im.immerge(np.concatenate([A, A2B, A2B2A, B, B2A, B2A2B], axis=0), n_rows=2)

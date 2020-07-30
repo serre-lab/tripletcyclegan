@@ -1,8 +1,8 @@
 import multiprocessing
 
 import tensorflow as tf
-
-
+import numpy as np
+from nets import img_augment
 def batch_dataset(dataset,
                   batch_size,
                   drop_remainder=True,
@@ -98,6 +98,7 @@ def disk_image_batch_dataset(img_paths,
     labels : nested structure of tensors/ndarrays/lists
 
     """
+    #import pdb;pdb.set_trace()
     if labels is None:
         memory_data = img_paths
     else:
@@ -127,3 +128,86 @@ def disk_image_batch_dataset(img_paths,
                                         repeat=repeat)
 
     return dataset
+
+
+
+
+
+
+def disk_image_batch_dataset_triplet(img_paths,
+                             batch_size,
+                             frame_size,
+                             labels=None,
+                             drop_remainder=True,
+                             Triplet_K=4,
+                             n_prefetch_batch=1,
+                             filter_fn=None,
+                             map_fn=None,
+                             n_map_threads=None,
+                             filter_after_map=False,
+                             shuffle=True,
+                             shuffle_buffer_size=None,
+                             repeat=None):
+
+        def sample_k_fids_for_pid(pid, all_fids, all_pids, batch_k):
+            """ Given a PID, select K FIDs of that specific PID. """
+            
+            possible_fids = tf.boolean_mask(all_fids, tf.equal(all_pids, pid))
+        
+            # The following simply uses a subset of K of the possible FIDs
+            # if more than, or exactly K are available. Otherwise, we first
+            # create a padded list of indices which contain a multiple of the
+            # original FID count such that all of them will be sampled equally likely.
+            count = tf.shape(possible_fids)[0]
+            padded_count = tf.cast(tf.math.ceil(batch_k / tf.cast(count, tf.float32)), tf.int32) * count
+            full_range = tf.math.mod(tf.range(padded_count), count)
+
+            # Sampling is always performed by shuffling and taking the first k.
+            shuffled = tf.random.shuffle(full_range)
+            selected_fids = tf.gather(possible_fids, shuffled[:batch_k])
+
+            return selected_fids, tf.fill([batch_k], pid)
+
+        
+        train_imgs = np.array(img_paths)
+        train_lbls = np.array(labels,dtype=np.int64)
+        unique_pids = np.unique(labels)
+        class_per_batch = batch_size / Triplet_K
+        if len(unique_pids) < class_per_batch:
+            unique_pids = np.tile(unique_pids, int(np.ceil(class_per_batch / len(unique_pids))))
+        print(train_imgs)
+        dataset = tf.data.Dataset.from_tensor_slices(unique_pids)
+        dataset = dataset.shuffle(len(unique_pids))
+        num_classes = batch_size // Triplet_K
+        dataset = dataset.take((len(unique_pids) // num_classes) * num_classes)
+        dataset = dataset.repeat()  #None ## Such sampling is always used during training
+
+        # For every PID, get K images.
+        dataset = dataset.map(lambda pid: sample_k_fids_for_pid(
+            pid, all_fids=img_paths, all_pids=train_lbls, batch_k=Triplet_K))
+
+        def _parse_function(filename, label,num_classes=18):
+            #tf.print(filename)
+            image_string = tf.io.read_file(filename)
+            #image_string = tf.Print(image_string,[filename,label],'img name ')
+            image_decoded = tf.image.decode_image(image_string,channels=3)
+            shape =tf.shape(image_decoded)  
+            return image_decoded, label#tf.one_hot(label, num_classes,dtype=tf.int64)
+       
+        dataset = dataset.apply(tf.data.experimental.unbatch() )
+        dataset = dataset.map(_parse_function,num_parallel_calls=n_map_threads)
+
+
+
+        is_training = True ## Such sampling is always used during training
+        if is_training:
+            dataset = dataset.map(lambda im, lbl: (
+            img_augment.preprocess_for_train(im, frame_size,frame_size,
+                                                 preprocess_func='inception_leaves_color'), lbl))
+            dataset = dataset.batch(batch_size)
+               
+        
+        dataset = dataset.repeat(repeat).prefetch(n_prefetch_batch)
+        #dataset = dataset.prefetch(1)
+
+        return dataset 
