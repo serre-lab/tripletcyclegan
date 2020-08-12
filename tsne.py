@@ -31,21 +31,26 @@ def generate_tsne(activations,perplexity=100,tsne_iter=5000):
     X_2d /= X_2d.max(axis=0)
     return X_2d
 
-def save_tsne_grid(img_collection,labels, X_2d, out_res, out_dim,out_dir,out_name='tsne_visualization.png',quality=75,subsampling=2):
+def save_tsne_grid(img_collection,labels, activations, out_res, out_dim,out_dir,tsne_iter=5000,out_name='tsne_visualization.png',quality=75,subsampling=2,border = 10):
+    print('entering tsne function')
+    X_2d = generate_tsne(activations,tsne_iter)
+    
     grid = np.dstack(np.meshgrid(np.linspace(0, 1, out_dim), np.linspace(0, 1, out_dim))).reshape(-1, 2)
     cost_matrix = cdist(grid, X_2d, "sqeuclidean").astype(np.float32)
+    print(cost_matrix.shape)
     cost_matrix = cost_matrix * (100000 / cost_matrix.max())
     row_asses, col_asses, _ = lapjv(cost_matrix)
     grid_jv = grid[col_asses]
-    border = 10
+    
     out = np.ones((out_dim*(out_res+2*border), out_dim*(out_res+2*border), 3))
     print(out.shape)
     fnt = ImageFont.load_default()
     fnt.size = 40
+   
     for pos, img,l in zip(grid_jv, img_collection,labels):
         h_range = int(np.floor(pos[0]* (out_dim - 1) * (out_res+2*border)))
         w_range = int(np.floor(pos[1]* (out_dim - 1) * (out_res+2*border)))
-        #img =image.img_to_array(img)
+        img =Image.fromarray(np.uint8(((img+1)/2)*255))
         img_with_border = ImageOps.expand(img,border=border,fill=COLORS[l%len(COLORS)])
         d = ImageDraw.Draw(img_with_border)
         d.text((10,10),str(l), font=fnt,fill=COLORS[l%len(COLORS)])

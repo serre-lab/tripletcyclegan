@@ -132,7 +132,7 @@ def make_zip_dataset2(A_img_paths,A_labels, B_img_paths,B_labels, batch_size, lo
 
     return A_B_dataset, len_dataset
 
-def make_dataset_triplet(img_paths, labels, batch_size, load_size, crop_size, training, num_classes=18,drop_remainder=True,grayscale=False, shuffle=False, repeat=1):
+def make_dataset_triplet(img_paths, labels, batch_size, load_size, crop_size, training,Triplet_K=4, num_classes=18,drop_remainder=True,grayscale=False, shuffle=False, repeat=1):
 
     if training:
        
@@ -161,11 +161,12 @@ def make_dataset_triplet(img_paths, labels, batch_size, load_size, crop_size, tr
                                        batch_size,
                                        crop_size,
                                        labels=labels,
+                                       Triplet_K=Triplet_K,
                                        drop_remainder=drop_remainder,
                                        shuffle=shuffle,
                                        repeat=repeat)
 
-def make_zip_dataset_triplet(A_img_paths,A_labels, B_img_paths,B_labels, batch_size, load_size, crop_size, training, shuffle=True, grayscale=True,repeat=False):
+def make_zip_dataset_triplet(A_img_paths,A_labels, B_img_paths,B_labels, batch_size, load_size, crop_size, training,Triplet_K=4, shuffle=True, grayscale=True,repeat=False):
     # zip two datasets aligned by the longer one
     if repeat:
         A_repeat = B_repeat = None  # cycle both
@@ -176,8 +177,8 @@ def make_zip_dataset_triplet(A_img_paths,A_labels, B_img_paths,B_labels, batch_s
         else:
             A_repeat = None  # cycle the shorter one
             B_repeat = 1
-    A_dataset = make_dataset_triplet(A_img_paths,A_labels, batch_size, load_size, crop_size, training, drop_remainder=True, shuffle=shuffle, grayscale=grayscale, repeat=A_repeat)
-    B_dataset = make_dataset_triplet(B_img_paths,B_labels, batch_size, load_size, crop_size, training, drop_remainder=True, shuffle=shuffle, grayscale=grayscale, repeat=B_repeat)
+    A_dataset = make_dataset_triplet(A_img_paths,A_labels, batch_size, load_size, crop_size, training,Triplet_K=Triplet_K, drop_remainder=True, shuffle=shuffle, grayscale=grayscale, repeat=A_repeat)
+    B_dataset = make_dataset_triplet(B_img_paths,B_labels, batch_size, load_size, crop_size, training,Triplet_K=Triplet_K, drop_remainder=True, shuffle=shuffle, grayscale=grayscale, repeat=B_repeat)
 
     A_B_dataset = tf.data.Dataset.zip((A_dataset, B_dataset))
     len_dataset = max(len(A_img_paths), len(B_img_paths)) // batch_size

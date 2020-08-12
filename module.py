@@ -56,7 +56,7 @@ def Resnet50embeddings(input_shape=(256, 256, 3),embedding_size=256):
 
     model = keras.Model(inputs=base_model.input, outputs=x)
 
-    for i,layer in enumerate(base_model.layers[-20:]):
+    for i,layer in enumerate(base_model.layers[-10:]):
         layer.trainable = True
     
     return model

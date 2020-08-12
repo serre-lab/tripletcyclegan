@@ -14,8 +14,9 @@ import module
 import neptune 
 import os 
 import tensorflow_addons as tfa
-
-
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import classification_report, recall_score,precision_score, f1_score
+from tsne import save_tsne_grid
 os.environ["CUDA_VISIBLE_DEVICES"] = '2,3'
 
 neptune.set_project('Serre-Lab/paleo-ai')
@@ -44,7 +45,7 @@ py.arg('--gradient_penalty_mode', default='none', choices=['none', 'dragan', 'wg
 py.arg('--gradient_penalty_weight', type=float, default=10.0)
 py.arg('--cycle_loss_weight', type=float, default=10.0)
 py.arg('--identity_loss_weight', type=float, default=0.0)
-py.arg('--triplet_loss_weight', type=float, default=0.3)
+py.arg('--triplet_loss_weight', type=float, default=1)
 py.arg('--pool_size', type=int, default=50)  # pool size to store fake samples
 py.arg('--grayscale',type=bool,default= False)
 args = py.args()
@@ -92,8 +93,9 @@ A_B_dataset_test, _ = data.make_zip_dataset2(A_img_paths_test,A_test_labels, B_i
 
 
 
-A_B_dataset_triplet, len_dataset = data.make_zip_dataset_triplet(A_img_paths,A_labels, B_img_paths,B_labels, args.batch_size_triplet, args.load_size, args.crop_size, training=True, repeat=False,shuffle=True,grayscale=args.grayscale)
+A_B_dataset_triplet, len_dataset_triplet = data.make_zip_dataset_triplet(A_img_paths,A_labels, B_img_paths,B_labels, args.batch_size_triplet, args.load_size, args.crop_size,Triplet_K=3, training=True, repeat=False,shuffle=True,grayscale=args.grayscale)
 
+A_B_dataset_test_triplet,len_dataset_test_triplet = data.make_zip_dataset2(A_img_paths_test,A_test_labels, B_img_paths_test,B_test_labels, args.batch_size_triplet, args.load_size, args.crop_size, training=False, grayscale=args.grayscale, repeat=False,shuffle =False)
 
 # ==============================================================================
 # =                                   models                                   =
@@ -141,10 +143,10 @@ def train_G(A, B,A_triplet,B_triplet):
         TB = T(B_triplet[0])
         TA2B = T(A2B_triplet)
         TB2A = T(B2A_triplet)
-        triplet_a_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA)
-        triplet_b_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB)
-        triplet_a2b_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA2B)
-        triplet_b2a_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB2A)
+        triplet_a_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA,margin = 0.5)
+        triplet_b_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB,margin = 0.5)
+        triplet_a2b_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA2B,margin=0.5)
+        triplet_b2a_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB2A,margin=0.5)
 
         A2B_d_logits = D_B(A2B, training=True)
         B2A_d_logits = D_A(B2A, training=True)
@@ -204,7 +206,7 @@ def train_T(A_triplet,B_triplet):
         TA = T(A_triplet[0],training=True)
         TB = T(B_triplet[0],training=True)
         A2B_triplet = G_A2B(A_triplet[0])
-        B2A_triplet = G_B2A(A_triplet[0])
+        B2A_triplet = G_B2A(B_triplet[0])
         TA2B = T(A2B_triplet)
         TB2A = T(B2A_triplet)
         triplet_a_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA)
@@ -249,7 +251,27 @@ def sample(A, B):
     B2A2B = G_A2B(B2A, training=False)
     return A2B, B2A, A2B2A, B2A2B
 
+@tf.function
+def test_triplet(A_triplet,B_triplet):
+    TA = T(A_triplet,training=False)
+    TB = T(B_triplet,training=False)
+    A2B_triplet = G_A2B(A_triplet,training=False)
+    B2A_triplet = G_B2A(B_triplet,training=False)
+    TA2B = T(A2B_triplet,training=False)
+    TB2A = T(B2A_triplet,training=False)
 
+    return TA,TB,TA2B,TB2A
+
+def clasifyKnn( X,y, K=1):
+    neigh = KNeighborsClassifier(n_neighbors=K)
+    neigh.fit(X, y)
+    pred = neigh.predict(X)
+    return pred
+
+def metrics_triplet(y_true,y_pred,title):
+    print(title)
+    print(classification_report(y_true,y_pred))
+    return recall_score(y_true,y_pred,average='micro'),precision_score(y_true,y_pred,average='micro'),f1_score(y_true,y_pred,average='micro')
 # ==============================================================================
 # =                                    run                                     =
 # ==============================================================================
@@ -294,7 +316,7 @@ with train_summary_writer.as_default():
         for A, B in tqdm.tqdm(A_B_dataset, desc='Inner Epoch Loop', total=len_dataset):
             A_triplet, B_triplet = next(train_triplet_iter)
             
-            G_loss_dict, D_loss_dict,T_loss_dict = train_step(A[0][:2], B[0][:2],A_triplet,B_triplet)
+            G_loss_dict, D_loss_dict,T_loss_dict = train_step(A[0], B[0],A_triplet,B_triplet)
             
             ## Logging to neptune
             for k in  G_loss_dict : neptune.log_metric(k,G_loss_dict[k])
@@ -309,13 +331,60 @@ with train_summary_writer.as_default():
 
 
             # sample
-            if G_optimizer.iterations.numpy() % 20 == 0:
+            if G_optimizer.iterations.numpy() % 100 == 0:
                 A, B = next(test_iter)
-                A2B, B2A, A2B2A, B2A2B = sample(A, B)
-                img = im.immerge(np.concatenate([A, A2B, A2B2A, B, B2A, B2A2B], axis=0), n_rows=2)
                 
+                A2B, B2A, A2B2A, B2A2B = sample(A[0], B[0])
+                img = im.immerge(np.concatenate([A[0], A2B, A2B2A, B[0], B2A, B2A2B], axis=0), n_rows=2)
                 im.imwrite(img, py.join(sample_dir, 'iter-%09d.jpg' % G_optimizer.iterations.numpy()))
                 neptune.log_image( 'iter-%09d'%G_optimizer.iterations.numpy(), py.join(sample_dir, 'iter-%09d.jpg' % G_optimizer.iterations.numpy()))
+                count = 0
+                for A_t, B_t in tqdm.tqdm(A_B_dataset_test_triplet, desc='Testing Triplet', total=len_dataset_test_triplet): 
+                    
+                    TA,TB,TA2B,TB2A = test_triplet(A_t[0],B_t[0])
+                    if count==0:
+                        embeddingsA,embeddingsB,embeddingsA2B,embeddingsB2A = TA,TB,TA2B,TB2A
+                        labelsA,labelsB = A_t[1],B_t[1]
+                        imagesA = A_t[0]
+                        imagesB = B_t[0]
+                    else:
+                        embeddingsA = np.concatenate([embeddingsA, TA]) 
+                        embeddingsB = np.concatenate([embeddingsB, TB])
+                        embeddingsA2B = np.concatenate([embeddingsA2B, TA2B])
+                        embeddingsB2A = np.concatenate([embeddingsB2A, TB2A]) 
+                        labelsA = np.concatenate([labelsA,A_t[1]])
+                        labelsB = np.concatenate([labelsB,B_t[1]])
+                        imagesA = np.concatenate([imagesA,A_t[0]])
+                        imagesB = np.concatenate([imagesB,B_t[0]])
+                    count += 1
+                print('batches %05d total %05d'%(count,count*args.batch_size_triplet))
+                out_dim =42
+                imagesAB = np.concatenate([imagesA,imagesB])[:np.square(out_dim)]
+                embeddingsAB = np.concatenate([embeddingsA,embeddingsB])[:np.square(out_dim),:]
+                labelsAB = np.concatenate([labelsA,labelsB])
+                labelsAB = labelsAB[:np.square(out_dim)]
+                
+                tsne_name = 'tsne_visualization_%05d.png'%G_optimizer.iterations.numpy()
+                #import pdb;pdb.set_trace()
+                save_tsne_grid(imagesAB,labelsAB,embeddingsAB,300,out_dim,output_dir,out_name=tsne_name,border=10)
+                neptune.log_image('tsne',os.path.join(output_dir,tsne_name))
+                
+                pred_A = clasifyKnn(embeddingsA,labelsA,K=3) 
+                pred_B = clasifyKnn(embeddingsB,labelsB,K=3) 
+                pred_A2B = clasifyKnn(embeddingsA2B,labelsA,K=3)
+                pred_B2A = clasifyKnn(embeddingsB2A,labelsB,K=3)
+                
+                recallA, precisionA,f1A = metrics_triplet(labelsA,pred_A,title='A') 
+                recallB, precisionB,f1B = metrics_triplet(labelsB,pred_B,title='B')
+                recallA2B, precisionA2B,f1A2B = metrics_triplet(labelsA,pred_A2B,title='A2B')
+                recallB2A, precisionB2A,f1B2A = metrics_triplet(labelsB,pred_B2A,title='B2A')
 
+                neptune.log_metric('f1_A',f1A)
+                neptune.log_metric('f1_B',f1B)
+                neptune.log_metric('f1_A2B',f1A2B)
+                neptune.log_metric('f1_B2A',f1B2A)
+                #neptune.log_metric('f1_top1_')
+                #neptune.log_metric('f1_top1_')
+                #neptune.log_metric('f1_top1_')
         # save checkpoint
         checkpoint.save(ep)
