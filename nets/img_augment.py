@@ -351,9 +351,10 @@ def inception_preprocess_leaves_color(images):
     ## Images are assumed to be [0,255]
     # images = tf.dtypes.cast(images)
    
-    images = images / 255.0
-    images = tf.subtract(images, 0.5)
+    images = tf.clip_by_value(images, 0, 255) / 255.0
     images = tf.multiply(images, 2.0)
+    images = tf.subtract(images, 1)
+    
    
     return images
 

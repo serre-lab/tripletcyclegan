@@ -17,7 +17,16 @@ import tensorflow_addons as tfa
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import classification_report, recall_score,precision_score, f1_score
 from tsne import save_tsne_grid
-os.environ["CUDA_VISIBLE_DEVICES"] = '2,3'
+from tensorflow.compat.v1 import ConfigProto
+from tensorflow.compat.v1 import InteractiveSession
+import time
+
+#from tensorflow import ConfigProto
+#from tensorflow import InteractiveSession
+config = ConfigProto()
+config.gpu_options.allow_growth = True
+session = InteractiveSession(config=config)
+#os.environ["CUDA_VISIBLE_DEVICES"] = '2,3'
 
 neptune.set_project('Serre-Lab/paleo-ai')
 
@@ -32,6 +41,7 @@ py.arg('--train_datasetB', default='/users/irodri15/scratch/Fossils/Experiments/
 py.arg('--test_datasetA', default='/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_fossils.csv')
 py.arg('--test_datasetB', default='/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_leaves.csv')
 py.arg('--experiment_name')
+py.arg('--kernels_num', type=int, default=64)
 py.arg('--load_size', type=int, default=300)  # load image to this size
 py.arg('--crop_size', type=int, default=300)  # then crop to this size
 py.arg('--batch_size', type=int, default=10)
@@ -48,9 +58,11 @@ py.arg('--identity_loss_weight', type=float, default=0.0)
 py.arg('--triplet_loss_weight', type=float, default=1)
 py.arg('--pool_size', type=int, default=50)  # pool size to store fake samples
 py.arg('--grayscale',type=bool,default= False)
+py.arg('--eval_every',type=int, default= 100) 
 args = py.args()
 
 params = vars(args)
+#timestr = time.strftime("%Y%m%d-%H%M")
 neptune.create_experiment(name=args.experiment_name,params=params)
 neptune.append_tag('cycleGAN')
 # output_dir
@@ -101,11 +113,11 @@ A_B_dataset_test_triplet,len_dataset_test_triplet = data.make_zip_dataset2(A_img
 # =                                   models                                   =
 # ==============================================================================
 
-G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
-G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
+G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3),dim=args.kernels_num)
+G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3),dim=args.kernels_num)
 
-D_A = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
-D_B = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
+D_A = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3),dim=args.kernels_num)
+D_B = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3),dim=args.kernels_num)
 
 
 T = module.Resnet50embeddings(input_shape=(args.crop_size, args.crop_size, 3),embedding_size=256)
@@ -143,10 +155,10 @@ def train_G(A, B,A_triplet,B_triplet):
         TB = T(B_triplet[0])
         TA2B = T(A2B_triplet)
         TB2A = T(B2A_triplet)
-        triplet_a_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA,margin = 0.5)
-        triplet_b_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB,margin = 0.5)
-        triplet_a2b_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA2B,margin=0.5)
-        triplet_b2a_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB2A,margin=0.5)
+        triplet_a_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA,margin = 1)
+        triplet_b_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB,margin = 1)
+        triplet_a2b_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA2B,margin=1)
+        triplet_b2a_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB2A,margin=1)
 
         A2B_d_logits = D_B(A2B, training=True)
         B2A_d_logits = D_A(B2A, training=True)
@@ -205,10 +217,10 @@ def train_T(A_triplet,B_triplet):
 
         TA = T(A_triplet[0],training=True)
         TB = T(B_triplet[0],training=True)
-        A2B_triplet = G_A2B(A_triplet[0])
-        B2A_triplet = G_B2A(B_triplet[0])
-        TA2B = T(A2B_triplet)
-        TB2A = T(B2A_triplet)
+        A2B_triplet = G_A2B(A_triplet[0],training = False)
+        B2A_triplet = G_B2A(B_triplet[0],training = False)
+        TA2B = T(A2B_triplet,training = True)
+        TB2A = T(B2A_triplet,training = True)
         triplet_a_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA)
         triplet_b_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB)
         triplet_a2b_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA2B)
@@ -331,7 +343,7 @@ with train_summary_writer.as_default():
 
 
             # sample
-            if G_optimizer.iterations.numpy() % 100 == 0:
+            if G_optimizer.iterations.numpy() % args.eval_every == 0:
                 A, B = next(test_iter)
                 
                 A2B, B2A, A2B2A, B2A2B = sample(A[0], B[0])
@@ -359,14 +371,14 @@ with train_summary_writer.as_default():
                     count += 1
                 print('batches %05d total %05d'%(count,count*args.batch_size_triplet))
                 out_dim =42
-                imagesAB = np.concatenate([imagesA,imagesB])[:np.square(out_dim)]
-                embeddingsAB = np.concatenate([embeddingsA,embeddingsB])[:np.square(out_dim),:]
-                labelsAB = np.concatenate([labelsA,labelsB])
-                labelsAB = labelsAB[:np.square(out_dim)]
+                imagesAB = np.concatenate([imagesB,imagesA])[:np.square(out_dim)]
+                embeddingsAB = np.concatenate([embeddingsB,embeddingsA])[:np.square(out_dim)]
+                labelsAB = np.concatenate([labelsB,labelsA])[:np.square(out_dim)]
+             
                 
                 tsne_name = 'tsne_visualization_%05d.png'%G_optimizer.iterations.numpy()
                 #import pdb;pdb.set_trace()
-                save_tsne_grid(imagesAB,labelsAB,embeddingsAB,300,out_dim,output_dir,out_name=tsne_name,border=10)
+                save_tsne_grid(imagesAB,labelsAB,embeddingsAB,args.load_size,out_dim,output_dir,out_name=tsne_name,quality=75,subsampling=0,border=10)
                 neptune.log_image('tsne',os.path.join(output_dir,tsne_name))
                 
                 pred_A = clasifyKnn(embeddingsA,labelsA,K=3) 

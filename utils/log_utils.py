@@ -2,7 +2,12 @@ import logging
 import os
 from utils import os_utils
 import pandas as pd
-
+import numpy 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as platform
+from scipy.spatial.distance import cdist
+from matplotlib import gridspec
 # tensorflow_logger = logging.getLogger('tensorflow')
 # tensorflow_logger.setLevel(logging.DEBUG)
 #
@@ -186,3 +191,17 @@ def create_logger(log_file):
 
 def classification_report_csv(report):
     return pd.DataFrame.from_dict(report)
+
+def show_top_k_images(indx_list,test_image_indexes, train_data, test_data,outname = 'similar_images.jpg'):
+    fig = plt.figure(figsize=(20, 40))
+    gs = gridspec.GridSpec(len(indx_list),len(indx_list[0])+2)
+    for i in range(len(indx_list)):
+        ax = fig.add_subplot(gs[i,0])
+        ax.imshow(test_data[test_image_indexes[i],:,:,:])
+        ax.axis('off')
+        for j in range(len(indx_list[0])):
+            ax = fig.add_subplot(gs[i,j+2])
+            ax.imshow(train_data[indx_list[i][j],:,:,:])
+            ax.axis('off')
+    plt.savefig(outname)
+    plt.show()

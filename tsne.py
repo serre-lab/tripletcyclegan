@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from scipy.spatial.distance import cdist
 from lapjv import lapjv
 import os
+import tensorflow as tf 
 from tensorflow.python.keras.preprocessing import image
 COLORS =[(184, 134, 11),(0, 100, 0),(189, 183, 107),(85, 107, 47),(255, 140, 0),(153, 50, 204),
         (233, 150, 122),(143, 188, 143),(72, 61, 139),(0, 206, 209),(148, 0, 211),(255, 20, 147),
@@ -24,7 +25,7 @@ def load_img(paths,out_dim,out_res):
         raise ValueError("Cannot fit {} images in {}x{} grid".format(len(img_collection), out_dim, out_dim))
     return img_collection
 
-def generate_tsne(activations,perplexity=100,tsne_iter=5000):
+def generate_tsne(activations,perplexity=50,tsne_iter=5000):
     tsne = TSNE(perplexity=perplexity, n_components=2, init='random', n_iter=tsne_iter)
     X_2d = tsne.fit_transform(activations)
     X_2d -= X_2d.min(axis=0)
@@ -57,6 +58,9 @@ def save_tsne_grid(img_collection,labels, activations, out_res, out_dim,out_dir,
         out[h_range:h_range + (out_res+2*border), w_range:w_range + (out_res+2*border)]  = img_with_border
     print(out.shape)
     im = image.array_to_img(out)
+    im.save(os.path.join(out_dir,'full_'+out_name), quality=quality,subsampling=subsampling)
+    
+    im = im.resize((1024,1024))
     im.save(os.path.join(out_dir,out_name), quality=quality,subsampling=subsampling)
 
 import random
