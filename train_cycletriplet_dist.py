@@ -28,6 +28,8 @@ session = InteractiveSession(config=config)
 
 neptune.set_project('Serre-Lab/paleo-ai')
 
+#GPUS to be used 
+GPU = [1,2]
 
 # ==============================================================================
 # =                                   param                                    =
@@ -91,13 +93,13 @@ A_img_paths_test = list(A_test['file_name'])#py.glob(py.join(args.datasets_dir, 
 A_test_labels = list(A_test['label'])
 B_img_paths_test = list(B_test['file_name'])#py.glob(py.join(args.datasets_dir, args.dataset, 'testB'), '*.jpg')
 B_test_labels = list(B_test['label'])
-with tf.device('/device:GPU:3'):
+with tf.device('/device:GPU:%d'%GPU[1]):
     A_B_dataset_test, _ = data.make_zip_dataset2(A_img_paths_test,A_test_labels, B_img_paths_test,B_test_labels, args.batch_size, args.load_size, args.crop_size, training=False, grayscale=args.grayscale, repeat=True)
     A_B_dataset, len_dataset = data.make_zip_dataset2(A_img_paths,A_labels, B_img_paths,B_labels, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False,shuffle=False,grayscale=args.grayscale)
     A2B_pool = data.ItemPool(args.pool_size)
     B2A_pool = data.ItemPool(args.pool_size)
 
-with tf.device('/device:GPU:2'):
+with tf.device('/device:GPU:%d'%GPU[0]):
         
     A_B_dataset_triplet, len_dataset_triplet = data.make_zip_dataset_triplet(A_img_paths,A_labels, B_img_paths,B_labels, args.batch_size_triplet, args.load_size, args.crop_size,Triplet_K=3, training=True, repeat=False,shuffle=True,grayscale=args.grayscale)
 
@@ -106,7 +108,7 @@ with tf.device('/device:GPU:2'):
 # ==============================================================================
 # =                                   models                                   =
 # ==============================================================================
-with tf.device('/device:GPU:3'):
+with tf.device('/device:GPU:%d'%GPU[1]):
     G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3),dim=args.kernels_num)
     G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3),dim=args.kernels_num)
 
@@ -120,7 +122,7 @@ with tf.device('/device:GPU:3'):
     G_optimizer = keras.optimizers.Adam(learning_rate=G_lr_scheduler, beta_1=args.beta_1)
     D_optimizer = keras.optimizers.Adam(learning_rate=D_lr_scheduler, beta_1=args.beta_1)
     
-with tf.device('/device:GPU:2'):
+with tf.device('/device:GPU:%d'%GPU[0]):
     T_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset_triplet, args.epoch_decay * len_dataset_triplet)
     T = module.Resnet50embeddings(input_shape=(args.crop_size, args.crop_size, 3),embedding_size=256)
     T_optimizer = keras.optimizers.Adam(learning_rate=T_lr_scheduler, beta_1=args.beta_1)
@@ -140,7 +142,7 @@ with tf.device('/device:GPU:2'):
 def train_G(A, B,A_triplet,B_triplet):
     with tf.GradientTape() as t:
 
-        with tf.device('/device:GPU:3'):
+        with tf.device('/device:GPU:%d'%GPU[1]):
             A2B = G_A2B(A, training=True)
             B2A = G_B2A(B, training=True)
             A2B2A = G_B2A(A2B, training=True)
@@ -158,7 +160,7 @@ def train_G(A, B,A_triplet,B_triplet):
             A2A_id_loss = identity_loss_fn(A, A2A)
             B2B_id_loss = identity_loss_fn(B, B2B)
         
-        with tf.device('/device:GPU:2'):
+        with tf.device('/device:GPU:%d'%GPU[0]):
             A2B_triplet = G_A2B(A_triplet[0],training=True)
             B2A_triplet = G_B2A(B_triplet[0],training=True)
             TA = T(A_triplet[0])
@@ -193,7 +195,7 @@ def train_G(A, B,A_triplet,B_triplet):
 @tf.function
 def train_D(A, B, A2B, B2A):
     with tf.GradientTape() as t:
-        with tf.device('/device:GPU:3'):
+        with tf.device('/device:GPU:%d'%GPU[1]):
             A_d_logits = D_A(A, training=True)
             B2A_d_logits = D_A(B2A, training=True)
             B_d_logits = D_B(B, training=True)
@@ -217,7 +219,7 @@ def train_D(A, B, A2B, B2A):
 @tf.function
 def train_T(A_triplet,B_triplet):
     with tf.GradientTape() as t:
-        with tf.device('/device:GPU:2'):
+        with tf.device('/device:GPU:%d'%GPU[0]):
             TA = T(A_triplet[0],training=True)
             TB = T(B_triplet[0],training=True)
             A2B_triplet = G_A2B(A_triplet[0])
@@ -304,6 +306,7 @@ try:  # restore checkpoint including the epoch counter
     checkpoint.restore().assert_existing_objects_matched()
 except Exception as e:
     print(e)
+    print('could not restore')
 
 # summary
 train_summary_writer = tf.summary.create_file_writer(py.join(output_dir, 'summaries', 'train'))

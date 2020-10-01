@@ -24,10 +24,10 @@ args.__dict__.update(test_args.__dict__)
 # =                                    test                                    =
 # ==============================================================================
 
-# data
+# data'/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_fossils.csv'
  
-A_test = pd.read_csv('/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/train_gan_fossils.csv')
-B_test = pd.read_csv('/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/train_gan_leaves.csv')
+A_test = pd.read_csv('/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_fossils.csv')
+B_test = pd.read_csv('/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_leaves.csv')
 A_img_paths_test = list(A_test['file_name'])
 B_img_paths_test = list(B_test['file_name'])
 #A_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'testA'), '*.jpg')
@@ -60,6 +60,7 @@ def sample_B2A(B):
 
 
 # run
+print('saving fossils')
 save_dir = py.join(args.experiment_dir, 'samples_testing', 'Fossils2Leaves')
 py.mkdir(save_dir)
 i = 0
@@ -69,7 +70,7 @@ for A in A_dataset_test:
         img = A2B_i.numpy() #np.concatenate([A_i.numpy(), A2B_i.numpy(), A2B2A_i.numpy()], axis=1)
         im.imwrite(img, py.join(save_dir, A_img_paths_test[i].split('/')[-2]+'-'+py.name_ext(A_img_paths_test[i])))
         i += 1
-
+print('saving leaves')
 save_dir = py.join(args.experiment_dir, 'samples_testing', 'Leaves2Fossils')
 py.mkdir(save_dir)
 i = 0

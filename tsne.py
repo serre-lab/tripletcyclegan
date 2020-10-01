@@ -7,7 +7,10 @@ from PIL import Image, ImageDraw, ImageFont,ImageOps
 import matplotlib as mlp
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import cdist
-from lapjv import lapjv
+try: 
+    from lapjv import lapjv
+except:
+    from lap import lapjv
 import os
 import tensorflow as tf 
 from tensorflow.python.keras.preprocessing import image
