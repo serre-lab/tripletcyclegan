@@ -30,11 +30,13 @@ A_test = pd.read_csv('/users/irodri15/scratch/Fossils/Experiments/softmax_triple
 B_test = pd.read_csv('/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_leaves.csv')
 A_img_paths_test = list(A_test['file_name'])
 B_img_paths_test = list(B_test['file_name'])
+A_labels_test = list(A_test['label'])
+B_labels_test = list(B_test['label'])
 #A_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'testA'), '*.jpg')
 #B_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'testB'), '*.jpg')
-A_dataset_test = data.make_dataset(A_img_paths_test, args.batch_size, args.load_size, args.crop_size,
+A_dataset_test = data.make_dataset2(A_img_paths_test,A_labels_test, args.batch_size, args.load_size, args.crop_size,
                                    training=False, drop_remainder=False, shuffle=False, repeat=1)
-B_dataset_test = data.make_dataset(B_img_paths_test, args.batch_size, args.load_size, args.crop_size,
+B_dataset_test = data.make_dataset2(B_img_paths_test, B_labels_test,args.batch_size, args.load_size, args.crop_size,
                                    training=False, drop_remainder=False, shuffle=False, repeat=1)
 
 # model

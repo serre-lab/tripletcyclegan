@@ -42,7 +42,7 @@ py.arg('--experiment_name')
 py.arg('--kernels_num', type=int, default=64)
 py.arg('--load_size', type=int, default=300)  # load image to this size
 py.arg('--crop_size', type=int, default=300)  # then crop to this size
-py.arg('--batch_size', type=int, default=10)
+py.arg('--batch_size', type=int, default=5)
 py.arg('--batch_size_triplet', type=int, default=20)
 py.arg('--epochs', type=int, default=200)
 py.arg('--epoch_decay', type=int, default=50)  # epoch to start decaying learning rate
@@ -50,10 +50,10 @@ py.arg('--lr', type=float, default=0.0002)
 py.arg('--beta_1', type=float, default=0.5)
 py.arg('--adversarial_loss_mode', default='lsgan', choices=['gan', 'hinge_v1', 'hinge_v2', 'lsgan', 'wgan'])
 py.arg('--gradient_penalty_mode', default='none', choices=['none', 'dragan', 'wgan-gp'])
-py.arg('--gradient_penalty_weight', type=float, default=10.0)
+py.arg('--gradient_penalty_weight', type=float, default=1.0)
 py.arg('--cycle_loss_weight', type=float, default=10.0)
 py.arg('--identity_loss_weight', type=float, default=0.0)
-py.arg('--triplet_loss_weight', type=float, default=0.5)
+py.arg('--triplet_loss_weight', type=float, default=1.0)
 py.arg('--pool_size', type=int, default=50)  # pool size to store fake samples
 py.arg('--grayscale',type=bool,default= False)
 py.arg('--triplet_margin', type = float, default= 1.0)
@@ -91,16 +91,16 @@ A_test_labels = list(A_test['label'])
 B_img_paths_test = list(B_test['file_name'])#py.glob(py.join(args.datasets_dir, args.dataset, 'testB'), '*.jpg')
 B_test_labels = list(B_test['label'])
 with tf.device('/device:GPU:0'):
-    A_B_dataset_test, _ = data.make_zip_dataset2(A_img_paths_test,A_test_labels, B_img_paths_test,B_test_labels, args.batch_size, args.load_size, args.crop_size, training=False, grayscale=args.grayscale, repeat=True)
-    A_B_dataset, len_dataset = data.make_zip_dataset2(A_img_paths,A_labels, B_img_paths,B_labels, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False,shuffle=False,grayscale=args.grayscale)
+    A_B_dataset_test, _ = data.make_zip_dataset3(A_img_paths_test,A_test_labels, B_img_paths_test,B_test_labels, args.batch_size, args.load_size, args.crop_size, training=False, grayscale=args.grayscale, repeat=True)
+    A_B_dataset, len_dataset = data.make_zip_dataset3(A_img_paths,A_labels, B_img_paths,B_labels, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False,shuffle=False,grayscale=args.grayscale)
     A2B_pool = data.ItemPool(args.pool_size)
     B2A_pool = data.ItemPool(args.pool_size)
 
 with tf.device('/device:GPU:1'):
         
-    A_B_dataset_triplet, len_dataset_triplet = data.make_zip_dataset_triplet(A_img_paths,A_labels, B_img_paths,B_labels, args.batch_size_triplet, args.load_size, args.crop_size,Triplet_K=3, training=True, repeat=False,shuffle=True,grayscale=args.grayscale)
+    A_B_dataset_triplet, len_dataset_triplet = data.make_zip_dataset_triplet2(A_img_paths,A_labels, B_img_paths,B_labels, args.batch_size_triplet, args.load_size, args.crop_size,Triplet_K=3, training=True, repeat=False,shuffle=True,grayscale=args.grayscale)
 
-    A_B_dataset_test_triplet,len_dataset_test_triplet = data.make_zip_dataset2(A_img_paths_test,A_test_labels, B_img_paths_test,B_test_labels, args.batch_size_triplet, args.load_size, args.crop_size, training=False, grayscale=args.grayscale, repeat=False,shuffle =False)
+    A_B_dataset_test_triplet,len_dataset_test_triplet = data.make_zip_dataset3(A_img_paths_test,A_test_labels, B_img_paths_test,B_test_labels, args.batch_size_triplet, args.load_size, args.crop_size, training=False, grayscale=args.grayscale, repeat=False,shuffle =False)
 
 # ==============================================================================
 # =                                   models                                   =
