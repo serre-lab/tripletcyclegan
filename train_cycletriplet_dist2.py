@@ -53,10 +53,11 @@ py.arg('--gradient_penalty_mode', default='none', choices=['none', 'dragan', 'wg
 py.arg('--gradient_penalty_weight', type=float, default=1.0)
 py.arg('--cycle_loss_weight', type=float, default=10.0)
 py.arg('--identity_loss_weight', type=float, default=0.0)
-py.arg('--triplet_loss_weight', type=float, default=1.0)
+py.arg('--triplet_loss_weight', type=float, default=1.5)
 py.arg('--pool_size', type=int, default=50)  # pool size to store fake samples
 py.arg('--grayscale',type=bool,default= False)
 py.arg('--triplet_margin', type = float, default= 1.0)
+py.arg('--evaluate_every', type = int, default= 500)
 args = py.args()
 
 params = vars(args)
@@ -351,7 +352,7 @@ with train_summary_writer.as_default():
             tl.summary(T_loss_dict, step=T_optimizer.iterations, name='T_losses')
             tl.summary({'learning rate': G_lr_scheduler.current_learning_rate}, step=G_optimizer.iterations, name='learning rate')
             # sample
-            if G_optimizer.iterations.numpy() % 100 == 0:
+            if G_optimizer.iterations.numpy() %  args.evaluate_every == 0:
                 A, B = next(test_iter)
             
                 A2B, B2A, A2B2A, B2A2B = sample(A[0], B[0])

@@ -296,17 +296,22 @@ def make_dataset3(img_paths, labels, batch_size, load_size, crop_size, training,
             if tf.math.divide(maxside,minside) > 1.3:
 
                 
-                repeat = tf.math.floor(tf.math.divide(maxside,minside))  
+                repeating = tf.math.floor(tf.math.divide(maxside,minside))  
                 new_img = img
                 if tf.math.equal(tf.shape(img)[1],minside):
-                    for i in range(int(repeat)):
+                    for i in range(int(repeating)):
                          new_img = tf.concat((new_img, img), axis=1) 
 
                 if tf.math.equal(tf.shape(img)[0],minside):
-                    for i in range(int(repeat)):
-                         new_img = tf.concat((new_img, img), axis=0) 
+                    for i in range(int(repeating)):
+                         new_img = tf.concat((new_img, img), axis=0)
+                    new_img = tf.image.rot90(new_img) 
+                         
+                    
             else:
-                new_img = img      
+                new_img = img
+                
+                  
             img = tf.image.resize(new_img, [load_size,load_size])
             #im.imwrite(img.numpy(),'test.jpg')
             #img = tf.image.central_crop(img, [crop_size, crop_size, tf.shape(img)[-1]])
@@ -323,15 +328,16 @@ def make_dataset3(img_paths, labels, batch_size, load_size, crop_size, training,
             if tf.math.divide(maxside,minside) > 1.3:
 
                 
-                repeat = tf.math.floor(tf.math.divide(maxside,minside))  
+                repeating = tf.math.floor(tf.math.divide(maxside,minside))  
                 new_img = img
                 if tf.math.equal(tf.shape(img)[1],minside):
-                    for i in range(int(repeat)):
+                    for i in range(int(repeating)):
                          new_img = tf.concat((new_img, img), axis=1) 
 
                 if tf.math.equal(tf.shape(img)[0],minside):
-                    for i in range(int(repeat)):
-                         new_img = tf.concat((new_img, img), axis=0) 
+                    for i in range(int(repeating)):
+                         new_img = tf.concat((new_img, img), axis=0)
+                    new_img = tf.image.rot90(new_img) 
             else:
                 new_img = img      
             img = tf.image.resize(new_img, [load_size,load_size])
@@ -404,7 +410,8 @@ def make_dataset_triplet2(img_paths, labels, batch_size, load_size, crop_size, t
 
                 if tf.math.equal(tf.shape(img)[0],minside):
                     for i in range(int(repeat)):
-                         new_img = tf.concat((new_img, img), axis=0) 
+                         new_img = tf.concat((new_img, img), axis=0)
+                    new_img = tf.image.rot90(new_img) 
             else:
                 new_img = img      
             img = tf.image.resize(new_img, [load_size+5,load_size+5])         
@@ -432,6 +439,7 @@ def make_dataset_triplet2(img_paths, labels, batch_size, load_size, crop_size, t
                 if tf.math.equal(tf.shape(img)[0],minside):
                     for i in range(int(repeat)):
                          new_img = tf.concat((new_img, img), axis=0) 
+                    new_img = tf.image.rot90(new_img)
             else:
                 new_img = img      
             img = tf.image.resize(new_img, [load_size,load_size])#ize(img, [load_size*+10,load_size+10],preserve_aspect_ratio=True)
