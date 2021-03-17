@@ -1,5 +1,5 @@
 import tensorflow as tf
-import tensorflow_addons as tfa
+#mport tensorflow_addons as tfa
 import tensorflow.keras as keras
 
 
@@ -13,7 +13,8 @@ def _get_norm_layer(norm):
     elif norm == 'batch_norm':
         return keras.layers.BatchNormalization
     elif norm == 'instance_norm':
-        return tfa.layers.InstanceNormalization
+        # just to make it work, but it should be tfa.layers
+        return keras.layers.LayerNormalization#tfa.layers.InstanceNormalization
     elif norm == 'layer_norm':
         return keras.layers.LayerNormalization
 

@@ -34,8 +34,8 @@ B_test_labels = list(B_test['label'])
 #B_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'testB'), '*.jpg')
 A_dataset_test = data.make_dataset2(A_img_paths_test,A_test_labels, args.batch_size, args.load_size, args.crop_size,
                                    training=False, drop_remainder=False, shuffle=False, repeat=1)
-B_dataset_test = data.make_dataset2(B_img_paths_test, args.batch_size, args.load_size, args.crop_size,
-                                   training=False, B_test_labels, drop_remainder=False, shuffle=False, repeat=1)
+B_dataset_test = data.make_dataset2(B_img_paths_test, B_test_labels, args.batch_size, args.load_size, args.crop_size,
+                                   training=False,  drop_remainder=False, shuffle=False, repeat=1)
 
 # model
 G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))

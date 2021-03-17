@@ -64,7 +64,7 @@ A = pd.read_csv(args.train_datasetA)
 B = pd.read_csv(args.train_datasetB)
 print(B)
 A_img_paths = list(A['file_name']) #py.glob(py.join(args.datasets_dir, args.dataset, 'trainA'), '*.jpg')
-#print(type(A_img_paths[0]))
+print(type(A_img_paths[0]))
 B_img_paths = list(B['file_name'])#py.glob(py.join(args.datasets_dir, args.dataset, 'trainB'), '*.jpg')
 A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False,shuffle=False,grayscale=args.grayscale)
 
@@ -77,8 +77,6 @@ B_test = pd.read_csv(args.test_datasetB)
 A_img_paths_test = list(A_test['file_name'])#py.glob(py.join(args.datasets_dir, args.dataset, 'testA'), '*.jpg')
 B_img_paths_test = list(B_test['file_name'])#py.glob(py.join(args.datasets_dir, args.dataset, 'testB'), '*.jpg')
 A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, args.batch_size, args.load_size, args.crop_size, training=False, grayscale=args.grayscale, repeat=True)
-
-
 
 
 # ==============================================================================

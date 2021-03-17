@@ -60,28 +60,102 @@ def _aspect_preserving_resize(image, smallest_side):
 
 
 def make_dataset(img_paths, batch_size, load_size, crop_size, training, drop_remainder=True,grayscale=False, shuffle=False, repeat=1):
+    # if training:
+       
+    #     @tf.function
+    #     def _map_fn(img):  # preprocessing
+    #         #toss = np.random.uniform(0,1)
+    #         if grayscale:
+    #             img = tf.image.rgb_to_grayscale(img)
+    #             img = tf.image.grayscale_to_rgb(img)
+    #         img = tf.image.random_flip_left_right(img)
+            
+    #         img = tf.image.resize_with_pad(img, load_size, load_size, antialias = True)
+    #         img = tf.image.random_crop(img, [crop_size, crop_size, tf.shape(img)[-1]])
+    #         img = tf.clip_by_value(img, 0, 255) / 255.0  # or img = tl.minmax_norm(img)
+    #         img = img * 2 - 1
+    #         return img
+    # else:
+    #     @tf.function
+    #     def _map_fn(img):  # preprocessing
+    #         img = tf.image.resize_with_pad(img,crop_size, crop_size, antialias = True)  # or img = tf.image.resize(img, [load_size, load_size]); img = tl.center_crop(img, crop_size)
+    #         if grayscale:
+    #             img = tf.image.rgb_to_grayscale(img)
+    #             img = tf.image.grayscale_to_rgb(img)
+    #         img = tf.clip_by_value(img, 0, 255) / 255.0  # or img = tl.minmax_norm(img)
+    #         img = img * 2 - 1
+    #         return img
     if training:
        
         @tf.function
         def _map_fn(img):  # preprocessing
+            
             #toss = np.random.uniform(0,1)
             if grayscale:
                 img = tf.image.rgb_to_grayscale(img)
                 img = tf.image.grayscale_to_rgb(img)
             img = tf.image.random_flip_left_right(img)
-            
-            img = tf.image.resize_with_pad(img, load_size, load_size, antialias = True)
-            img = tf.image.random_crop(img, [crop_size, crop_size, tf.shape(img)[-1]])
+            maxside = tf.math.maximum(tf.shape(img)[0],tf.shape(img)[1])
+            minside = tf.math.minimum(tf.shape(img)[0],tf.shape(img)[1])
+            new_img = img
+             
+            if tf.math.divide(maxside,minside) > 1.2:
+
+                
+                repeating = tf.math.floor(tf.math.divide(maxside,minside))  
+                new_img = img
+                if tf.math.equal(tf.shape(img)[1],minside):
+                    for i in range(int(repeating)):
+                         new_img = tf.concat((new_img, img), axis=1) 
+
+                if tf.math.equal(tf.shape(img)[0],minside):
+                    for i in range(int(repeating)):
+                         new_img = tf.concat((new_img, img), axis=0)
+                    new_img = tf.image.rot90(new_img) 
+                         
+                    
+            else:
+                new_img = img
+                
+                  
+            img = tf.image.resize(new_img, [crop_size,crop_size])
+            #im.imwrite(img.numpy(),'test.jpg')
+            #img = tf.image.central_crop(img, [crop_size, crop_size, tf.shape(img)[-1]])
             img = tf.clip_by_value(img, 0, 255) / 255.0  # or img = tl.minmax_norm(img)
             img = img * 2 - 1
             return img
     else:
         @tf.function
         def _map_fn(img):  # preprocessing
-            img = tf.image.resize_with_pad(img,crop_size, crop_size, antialias = True)  # or img = tf.image.resize(img, [load_size, load_size]); img = tl.center_crop(img, crop_size)
+            maxside = tf.math.maximum(tf.shape(img)[0],tf.shape(img)[1])
+            minside = tf.math.minimum(tf.shape(img)[0],tf.shape(img)[1])
+            new_img = img
+             
+            if tf.math.divide(maxside,minside) > 1.3:
+
+                
+                repeating = tf.math.floor(tf.math.divide(maxside,minside))  
+                new_img = img
+                if tf.math.equal(tf.shape(img)[1],minside):
+                    for i in range(int(repeating)):
+                         new_img = tf.concat((new_img, img), axis=1) 
+
+                if tf.math.equal(tf.shape(img)[0],minside):
+                    for i in range(int(repeating)):
+                         new_img = tf.concat((new_img, img), axis=0)
+                    new_img = tf.image.rot90(new_img) 
+            else:
+                new_img = img      
+            img = tf.image.resize(new_img, [crop_size,crop_size])
+            #padx = load_size - tf.shape(img)[0]
+            #pady = load_size -tf.shape(img)[1]
+            #paddings = [[padx/2,padx/2],[pady/2,pady/2],[0, 0]]
+            #img = tf.pad(img,paddings,'SYMMETRIC')
+            #img = tf.image.resize_with_pad(img,crop_size, crop_size, antialias = True)  # or img = tf.image.resize(img, [load_size, load_size]); img = tl.center_crop(img, crop_size)
             if grayscale:
                 img = tf.image.rgb_to_grayscale(img)
                 img = tf.image.grayscale_to_rgb(img)
+            #img = tf.image.random_crop(img, [crop_size, crop_size, tf.shape(img)[-1]])
             img = tf.clip_by_value(img, 0, 255) / 255.0  # or img = tl.minmax_norm(img)
             img = img * 2 - 1
             return img
@@ -293,7 +367,7 @@ def make_dataset3(img_paths, labels, batch_size, load_size, crop_size, training,
             minside = tf.math.minimum(tf.shape(img)[0],tf.shape(img)[1])
             new_img = img
              
-            if tf.math.divide(maxside,minside) > 1.3:
+            if tf.math.divide(maxside,minside) > 1.2:
 
                 
                 repeating = tf.math.floor(tf.math.divide(maxside,minside))  

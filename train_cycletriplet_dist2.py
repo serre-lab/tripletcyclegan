@@ -19,13 +19,15 @@ from sklearn.metrics import classification_report, recall_score,precision_score,
 from tsne import save_tsne_grid
 from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
+
+
 #from tensorflow import ConfigProto
 #from tensorflow import InteractiveSession
 config = ConfigProto()
 config.gpu_options.allow_growth = True
 session = InteractiveSession(config=config)
 #os.environ["CUDA_VISIBLE_DEVICES"] = '2,3'
-
+tf.config.experimental.set_lms_enabled(True)
 neptune.set_project('Serre-Lab/paleo-ai')
 
 
@@ -33,17 +35,17 @@ neptune.set_project('Serre-Lab/paleo-ai')
 # =                                   param                                    =
 # ==============================================================================
 
-py.arg('--outdir', default='/users/irodri15/scratch/Fossils/Experiments/CycleGan/checkpoints')
-py.arg('--train_datasetA', default='/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/train_gan_fossils.csv')
-py.arg('--train_datasetB', default='/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/train_gan_leaves.csv')
-py.arg('--test_datasetA', default='/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_fossils.csv')
-py.arg('--test_datasetB', default='/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_leaves.csv')
+py.arg('--outdir', default='/users/irodri15/data/irodri15/Fossils/Experiments/cyclegan/checkpoints/')
+py.arg('--train_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/fossils_train_oscar_processed.csv')
+py.arg('--train_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/leaves_train_oscar_processed.csv')
+py.arg('--test_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/fossils_test_oscar_processed.csv')
+py.arg('--test_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/leaves_test_oscar_processed.csv')
 py.arg('--experiment_name')
 py.arg('--kernels_num', type=int, default=64)
-py.arg('--load_size', type=int, default=300)  # load image to this size
-py.arg('--crop_size', type=int, default=300)  # then crop to this size
-py.arg('--batch_size', type=int, default=5)
-py.arg('--batch_size_triplet', type=int, default=20)
+py.arg('--load_size', type=int, default=600)  # load image to this size
+py.arg('--crop_size', type=int, default=600)  # then crop to this size
+py.arg('--batch_size', type=int, default=1)
+py.arg('--batch_size_triplet', type=int, default=15)
 py.arg('--epochs', type=int, default=200)
 py.arg('--epoch_decay', type=int, default=50)  # epoch to start decaying learning rate
 py.arg('--lr', type=float, default=0.0002)
@@ -65,9 +67,11 @@ neptune.create_experiment(name=args.experiment_name,params=params)
 neptune.append_tag('cycleGAN')
 # output_dir
 output_dir = os.path.join(args.outdir,args.experiment_name)#py.join('output', args.outdir)
+print(output_dir)
 os.makedirs(output_dir,exist_ok=True)
 
 # save settings
+print(output_dir)
 py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 
 

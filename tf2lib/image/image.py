@@ -3,7 +3,7 @@ import math
 import random
 
 import tensorflow as tf
-import tensorflow_addons as tfa
+##import tensorflow_addons as tfa
 
 
 @tf.function
@@ -49,9 +49,9 @@ def random_grayscale(image, p=0.1):
                    false_fn=lambda: image)
 
 
-@tf.function
-def random_rotate(images, max_degrees, interpolation='BILINEAR'):
+#@tf.function
+#def random_rotate(images, max_degrees, interpolation='BILINEAR'):
     # Randomly rotate image(s) counterclockwise by the angle(s) uniformly chosen from [-max_degree(s), max_degree(s)].
-    max_degrees = tf.convert_to_tensor(max_degrees, dtype=tf.float32)
-    angles = tf.random.uniform(tf.shape(max_degrees), minval=-1.0, maxval=1.0) * max_degrees / 180.0 * math.pi
-    return tfa.image.rotate(images, angles, interpolation=interpolation)
+#    max_degrees = tf.convert_to_tensor(max_degrees, dtype=tf.float32)
+#    angles = tf.random.uniform(tf.shape(max_degrees), minval=-1.0, maxval=1.0) * max_degrees / 180.0 * math.pi
+#    return tfa.image.rotate(images, angles, interpolation=interpolation)

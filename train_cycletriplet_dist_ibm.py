@@ -11,7 +11,7 @@ import tqdm
 import pandas as pd
 import data
 import module
-import neptune 
+#import #neptune 
 import os 
 import tensorflow_addons as tfa
 from sklearn.neighbors import KNeighborsClassifier
@@ -26,26 +26,27 @@ config.gpu_options.allow_growth = True
 session = InteractiveSession(config=config)
 #os.environ["CUDA_VISIBLE_DEVICES"] = '2,3'
 tf.config.experimental.set_lms_enabled(True)
-neptune.set_project('Serre-Lab/paleo-ai')
+#neptune.set_project('Serre-Lab/paleo-ai')
 
 #GPUS to be used 
-GPU = [0,1]
+GPU = [2,3]
 
 # ==============================================================================
 # =                                   param                                    =
 # ==============================================================================
 
-py.arg('--outdir', default='/users/irodri15/scratch/Fossils/Experiments/CycleGan/checkpoints')
-py.arg('--train_datasetA', default='/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/train_gan_fossils.csv')
-py.arg('--train_datasetB', default='/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/train_gan_leaves.csv')
-py.arg('--test_datasetA', default='/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_fossils.csv')
-py.arg('--test_datasetB', default='/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_leaves.csv')
+py.arg('--outdir', default='/users/irodri15/data/irodri15/Fossils/Experiments/cyclegan/checkpoints/')
+py.arg('--train_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/fossils_train_oscar_processed.csv')
+py.arg('--train_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/leaves_train_oscar_processed.csv')
+py.arg('--test_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/fossils_test_oscar_processed.csv')
+py.arg('--test_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/leaves_test_oscar_processed.csv')
+
 py.arg('--experiment_name')
 py.arg('--kernels_num', type=int, default=64)
-py.arg('--load_size', type=int, default=300)  # load image to this size
-py.arg('--crop_size', type=int, default=300)  # then crop to this size
+py.arg('--load_size', type=int, default=360)  # load image to this size
+py.arg('--crop_size', type=int, default=360)  # then crop to this size
 py.arg('--batch_size', type=int, default=1)
-py.arg('--batch_size_triplet', type=int, default=15)
+py.arg('--batch_size_triplet', type=int, default=10)
 py.arg('--epochs', type=int, default=150)
 py.arg('--epoch_decay', type=int, default=50)  # epoch to start decaying learning rate
 py.arg('--lr', type=float, default=0.0002)
@@ -63,8 +64,8 @@ py.arg('--evaluate_every', type = int, default= 500)
 args = py.args()
 
 params = vars(args)
-neptune.create_experiment(name=args.experiment_name,params=params)
-neptune.append_tag('cycleGAN')
+#neptune.create_experiment(name=args.experiment_name,params=params)
+#neptune.append_tag('cycleGAN')
 # output_dir
 output_dir = os.path.join(args.outdir,args.experiment_name)#py.join('output', args.outdir)
 os.makedirs(output_dir,exist_ok=True)
@@ -335,10 +336,10 @@ with train_summary_writer.as_default():
 
                 G_loss_dict, D_loss_dict,T_loss_dict = train_step(A[0], B[0],A_triplet,B_triplet)
 
-                ## Logging to neptune
-                for k in  G_loss_dict : neptune.log_metric(k,G_loss_dict[k])
-                for k in  D_loss_dict : neptune.log_metric(k,D_loss_dict[k])
-                for k in  T_loss_dict : neptune.log_metric(k,T_loss_dict[k])
+                ## Logging to #neptune
+                #for k in  G_loss_dict : #neptune.log_metric(k,G_loss_dict[k])
+                #for k in  D_loss_dict : #neptune.log_metric(k,D_loss_dict[k])
+                #for k in  T_loss_dict : #neptune.log_metric(k,T_loss_dict[k])
                 # # summary
                 tl.summary(G_loss_dict, step=G_optimizer.iterations, name='G_losses')
                 tl.summary(D_loss_dict, step=G_optimizer.iterations, name='D_losses')
@@ -351,7 +352,7 @@ with train_summary_writer.as_default():
                     A2B, B2A, A2B2A, B2A2B = sample(A[0], B[0])
                     img = im.immerge(np.concatenate([A[0], A2B, A2B2A, B[0], B2A, B2A2B], axis=0), n_rows=2)
                     im.imwrite(img, py.join(sample_dir, 'iter-%09d.jpg' % G_optimizer.iterations.numpy()))
-                    neptune.log_image( 'iter-%09d'%G_optimizer.iterations.numpy(), py.join(sample_dir, 'iter-%09d.jpg' % G_optimizer.iterations.numpy()))
+                    #neptune.log_image( 'iter-%09d'%G_optimizer.iterations.numpy(), py.join(sample_dir, 'iter-%09d.jpg' % G_optimizer.iterations.numpy()))
                     count = 0
                     for A_t, B_t in tqdm.tqdm(A_B_dataset_test_triplet, desc='Testing Triplet', total=len_dataset_test_triplet): 
                     
@@ -382,7 +383,7 @@ with train_summary_writer.as_default():
                     #import pdb;pdb.set_trace()
                     if G_optimizer.iterations.numpy() % args.evaluate_every*3 == 0:
                         save_tsne_grid(imagesAB,labelsAB,embeddingsAB,args.load_size,out_dim,output_dir,out_name=tsne_name,border=10)
-                        neptune.log_image('tsne',os.path.join(output_dir,tsne_name))
+                        #neptune.log_image('tsne',os.path.join(output_dir,tsne_name))
 
                     pred_A = clasifyKnn(embeddingsA,labelsA,K=3) 
                     pred_B = clasifyKnn(embeddingsB,labelsB,K=3) 
@@ -394,12 +395,12 @@ with train_summary_writer.as_default():
                     recallA2B, precisionA2B,f1A2B = metrics_triplet(labelsA,pred_A2B,title='A2B')
                     recallB2A, precisionB2A,f1B2A = metrics_triplet(labelsB,pred_B2A,title='B2A')
 
-                    neptune.log_metric('f1_A',f1A)
-                    neptune.log_metric('f1_B',f1B)
-                    neptune.log_metric('f1_A2B',f1A2B)
-                    neptune.log_metric('f1_B2A',f1B2A)
-                    #neptune.log_metric('f1_top1_')
-                    #neptune.log_metric('f1_top1_')
-                    #neptune.log_metric('f1_top1_')
+                    #neptune.log_metric('f1_A',f1A)
+                    #neptune.log_metric('f1_B',f1B)
+                    #neptune.log_metric('f1_A2B',f1A2B)
+                    #neptune.log_metric('f1_B2A',f1B2A)
+                    ##neptune.log_metric('f1_top1_')
+                    ##neptune.log_metric('f1_top1_')
+                    ##neptune.log_metric('f1_top1_')
             # save checkpoint
             checkpoint.save(ep)
