@@ -25,10 +25,10 @@ tf.config.experimental.set_lms_enabled(True)
 # ==============================================================================
 
 py.arg('--outdir', default='/users/irodri15/scratch/Fossils/Experiments/CycleGan/checkpoints')
-py.arg('--train_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/fossils_train_oscar_processed.csv')
-py.arg('--train_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/leaves_train_oscar_processed.csv')
-py.arg('--test_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/fossils_test_oscar_processed.csv')
-py.arg('--test_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/leaves_test_oscar_processed.csv')
+py.arg('--train_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v3_resize/fossils_train.csv')
+py.arg('--train_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v3_resize/leaves_train.csv')
+py.arg('--test_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v3_resize/fossils_test.csv')
+py.arg('--test_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v3_resize/leaves_test.csv')
 py.arg('--experiment_name')
 py.arg('--load_size', type=int, default=750)  # load image to this size
 py.arg('--crop_size', type=int, default=748)  # then crop to this size

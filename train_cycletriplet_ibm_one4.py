@@ -21,6 +21,19 @@ from tsne import save_tsne_grid
 #from tensorflow.compat.v1 import InteractiveSession
 #from tensorflow import ConfigProto
 #from tensorflow import InteractiveSession
+#config = tf.compat.v1.ConfigProto()
+#config.gpu_options.allow_growth = True
+#session = tf.compat.v1.Session(config=config)
+
+tf.config.experimental.set_lms_enabled(True)
+#from tensorflow_large_model_support import LMS 
+
+#lms_obj = LMS()
+#lms_obj.run(tf.get_default_graph()) 
+
+
+#with tf.Session() as sess:
+#    sess.run(tf.global_variables_initializer())
 #config = ConfigProto()
 #config.gpu_options.allow_growth = True
 #session = InteractiveSession(config=config)
@@ -28,21 +41,21 @@ from tsne import save_tsne_grid
 #lms_obj = LMS()
 #lms_obj.run() 
 #os.environ["CUDA_VISIBLE_DEVICES"] = '2,3'
-tf.config.experimental.set_lms_enabled(True)
+#tf.config.experimental.set_lms_enabled(True)
 #neptune.set_project('Serre-Lab/paleo-ai')
 
 #GPUS to be used 
-GPU = [2,3]
+GPU = [0,1]
 
 # ==============================================================================
 # =                                   param                                    =
 # ==============================================================================
 
 py.arg('--outdir', default='/users/irodri15/data/irodri15/Fossils/Experiments/cyclegan/checkpoints/')
-py.arg('--train_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/fossils_train_oscar_processed.csv')
-py.arg('--train_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/leaves_train_oscar_processed.csv')
-py.arg('--test_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/fossils_test_oscar_processed.csv')
-py.arg('--test_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/leaves_test_oscar_processed.csv')
+py.arg('--train_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves_v1.0_release/fossils_train.csv')
+py.arg('--train_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves_v1.0_release/leaves_train.csv')
+py.arg('--test_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves_v1.0_release/fossils_test.csv')
+py.arg('--test_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves_v1.0_release/leaves_test.csv')
 
 py.arg('--experiment_name')
 py.arg('--kernels_num', type=int, default=64)
@@ -50,20 +63,20 @@ py.arg('--load_size', type=int, default=600)  # load image to this size
 py.arg('--crop_size', type=int, default=600)  # then crop to this size
 py.arg('--batch_size', type=int, default=1)
 py.arg('--batch_size_triplet', type=int, default=10)
-py.arg('--epochs', type=int, default=150)
-py.arg('--epoch_decay', type=int, default=50)  # epoch to start decaying learning rate
-py.arg('--lr', type=float, default=0.0002)
-py.arg('--beta_1', type=float, default=0.5)
+py.arg('--epochs', type=int, default=25)
+py.arg('--epoch_decay', type=int, default=10)  # epoch to start decaying learning rate
+py.arg('--lr', type=float, default=0.0001)
+py.arg('--beta_1', type=float, default=0.55)
 py.arg('--adversarial_loss_mode', default='lsgan', choices=['gan', 'hinge_v1', 'hinge_v2', 'lsgan', 'wgan'])
 py.arg('--gradient_penalty_mode', default='none', choices=['none', 'dragan', 'wgan-gp'])
-py.arg('--gradient_penalty_weight', type=float, default=3.0)
+py.arg('--gradient_penalty_weight', type=float, default=1.0)
 py.arg('--cycle_loss_weight', type=float, default=10.0)
 py.arg('--identity_loss_weight', type=float, default=0.0)
-py.arg('--triplet_loss_weight', type=float, default=1.5)
-py.arg('--pool_size', type=int, default=50)  # pool size to store fake samples
+py.arg('--triplet_loss_weight', type=float, default=1.0)
+py.arg('--pool_size', type=int, default=64)  # pool size to store fake samples
 py.arg('--grayscale',type=bool,default= False)
-py.arg('--triplet_margin', type = float, default= 1.0)
-py.arg('--evaluate_every', type = int, default= 1000)
+py.arg('--triplet_margin', type = float, default= 1.5)
+py.arg('--evaluate_every', type = int, default= 500)
 args = py.args()
 
 params = vars(args)
@@ -72,7 +85,7 @@ params = vars(args)
 # output_dir
 output_dir = os.path.join(args.outdir,args.experiment_name)#py.join('output', args.outdir)
 os.makedirs(output_dir,exist_ok=True)
-os.makedirs(os.path.join(output_dir,'checkpoints'),exist_ok=True)
+#os.makedirs(os.path.join(output_dir,'checkpoints'),exist_ok=True)
 # save settings
 py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 
@@ -115,7 +128,6 @@ with tf.device('/device:GPU:%d'%GPU[0]):
 with tf.device('/device:GPU:%d'%GPU[1]):
     G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3),dim=args.kernels_num)
     G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3),dim=args.kernels_num)
-
     D_A = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3),dim=args.kernels_num)
     D_B = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3),dim=args.kernels_num)
     d_loss_fn, g_loss_fn = gan.get_adversarial_losses_fn(args.adversarial_loss_mode)
@@ -142,6 +154,7 @@ with tf.device('/device:GPU:%d'%GPU[0]):
 # =                                 train step                                 =
 # ==============================================================================
 
+
 @tf.function
 def train_G(A, B,A_triplet,B_triplet):
     with tf.GradientTape() as t:
@@ -153,10 +166,9 @@ def train_G(A, B,A_triplet,B_triplet):
             B2A2B = G_A2B(B2A, training=True)
             A2A = G_B2A(A, training=True)
             B2B = G_A2B(B, training=True)
-            
+
             A2B_d_logits = D_B(A2B, training=True)
             B2A_d_logits = D_A(B2A, training=True)
-
             A2B_g_loss = g_loss_fn(A2B_d_logits)
             B2A_g_loss = g_loss_fn(B2A_d_logits)
             A2B2A_cycle_loss = cycle_loss_fn(A, A2B2A)
@@ -204,12 +216,10 @@ def train_D(A, B, A2B, B2A):
             B2A_d_logits = D_A(B2A, training=True)
             B_d_logits = D_B(B, training=True)
             A2B_d_logits = D_B(A2B, training=True)
-
             A_d_loss, B2A_d_loss = d_loss_fn(A_d_logits, B2A_d_logits)
             B_d_loss, A2B_d_loss = d_loss_fn(B_d_logits, A2B_d_logits)
             D_A_gp = gan.gradient_penalty(functools.partial(D_A, training=True), A, B2A, mode=args.gradient_penalty_mode)
             D_B_gp = gan.gradient_penalty(functools.partial(D_B, training=True), B, A2B, mode=args.gradient_penalty_mode)
-
             D_loss = (A_d_loss + B2A_d_loss) + (B_d_loss + A2B_d_loss) + (D_A_gp + D_B_gp) * args.gradient_penalty_weight
 
     D_grad = t.gradient(D_loss, D_A.trainable_variables + D_B.trainable_variables)
@@ -234,8 +244,7 @@ def train_T(A_triplet,B_triplet):
             triplet_b_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB,margin=args.triplet_margin)
             triplet_a2b_loss = tfa.losses.triplet_hard_loss(A_triplet[1],TA2B,margin=args.triplet_margin)
             triplet_b2a_loss = tfa.losses.triplet_hard_loss(B_triplet[1],TB2A,margin=args.triplet_margin)
-
-            T_loss = triplet_a_loss + triplet_b_loss +triplet_a2b_loss + triplet_b2a_loss
+            T_loss = triplet_a_loss + triplet_b_loss +triplet_a2b_loss + 1.25*triplet_b2a_loss
     T_grad = t.gradient(T_loss,T.trainable_variables)
     T_optimizer.apply_gradients(zip(T_grad,T.trainable_variables))
         
@@ -301,14 +310,25 @@ checkpoint = tl.Checkpoint(dict(G_A2B=G_A2B,
                                 G_B2A=G_B2A,
                                 D_A=D_A,
                                 D_B=D_B,
-                                G_optimizer=G_optimizer,
-                                D_optimizer=D_optimizer,
+                                #G_optimizer=G_optimizer,
+                                #D_optimizer=D_optimizer,
                                 ep_cnt=ep_cnt),
                            py.join(output_dir, 'checkpoints'),
-                           max_to_keep=5)
+                           max_to_keep=100)
+
+checkpoint2 = tl.Checkpoint(dict(G_A2B=G_A2B,
+                                G_B2A=G_B2A,
+                                D_A=D_A,
+                                D_B=D_B,
+                                #G_optimizer=G_optimizer,
+                                #D_optimizer=D_optimizer,
+                                ep_cnt=ep_cnt),
+                           py.join(output_dir, 'checkpoints2'),
+                           max_to_keep=100)
 
 try:  # restore checkpoint including the epoch counter
-    checkpoint.restore(save_path=py.join(output_dir, 'checkpoints') ).assert_existing_objects_matched()
+    #import pdb;pdb.set_trace()
+    checkpoint.restore(save_path=py.join(output_dir, 'checkpoints/ckpt-115243') )     
 except Exception as e:
     print(e)
     print('could not restore')
@@ -330,11 +350,15 @@ with train_summary_writer.as_default():
 
         # update epoch counter
         ep_cnt.assign_add(1)
-
+        #checkpoint.save(ep)
+        #checkpoint.save(1000000)
         # train for an epoch
-        for A, B in tqdm.tqdm(A_B_dataset, desc='Inner Epoch Loop', total=len_dataset):
-            for A_triplet, B_triplet in tqdm.tqdm(A_B_dataset_triplet, desc='Inner Epoch Triplet Loop', total=len_dataset):
-                checkpoint.save(ep)
+        
+        for A_triplet, B_triplet in tqdm.tqdm(A_B_dataset_triplet, desc='Inner Epoch Triplet Loop', total=len_dataset):
+        #if True: 
+            for A, B in tqdm.tqdm(A_B_dataset, desc='Inner Epoch Loop', total=len_dataset):
+                checkpoint.save(G_optimizer.iterations.numpy())
+                
                 A_triplet, B_triplet = next(train_triplet_iter)
 
                 G_loss_dict, D_loss_dict,T_loss_dict = train_step(A[0], B[0],A_triplet,B_triplet)
@@ -349,7 +373,17 @@ with train_summary_writer.as_default():
                 tl.summary(T_loss_dict, step=T_optimizer.iterations, name='T_losses')
                 tl.summary({'learning rate': G_lr_scheduler.current_learning_rate}, step=G_optimizer.iterations, name='learning rate')
                 # sample
-                if G_optimizer.iterations.numpy() % args.evaluate_every == 0:
+                if G_optimizer.iterations.numpy() <12000:
+                    ev_every = args.evaluate_every 
+                elif G_optimizer.iterations.numpy() >12000 and G_optimizer.iterations.numpy() <20000:
+                     ev_every = 500
+                else: 
+                    ev_every = args.evaluate_every 
+                    
+                if G_optimizer.iterations.numpy() %ev_every == 0:
+                    checkpoint.save(G_optimizer.iterations.numpy())
+                    
+                    
                     A, B = next(test_iter)
                 
                     A2B, B2A, A2B2A, B2A2B = sample(A[0], B[0])
@@ -384,8 +418,8 @@ with train_summary_writer.as_default():
                 
                     tsne_name = 'tsne_visualization_%05d.png'%G_optimizer.iterations.numpy()
                     #import pdb;pdb.set_trace()
-                    if G_optimizer.iterations.numpy() % args.evaluate_every*3 == 0:
-                        save_tsne_grid(imagesAB,labelsAB,embeddingsAB,args.load_size,out_dim,output_dir,out_name=tsne_name,border=10)
+                    #if G_optimizer.iterations.numpy() % args.evaluate_every*4 == 0:
+                    #    save_tsne_grid(imagesAB,labelsAB,embeddingsAB,args.load_size,out_dim,output_dir,out_name=tsne_name,border=10)
                         #neptune.log_image('tsne',os.path.join(output_dir,tsne_name))
 
                     pred_A = clasifyKnn(embeddingsA,labelsA,K=3) 
@@ -397,7 +431,7 @@ with train_summary_writer.as_default():
                     recallB, precisionB,f1B = metrics_triplet(labelsB,pred_B,title='B')
                     recallA2B, precisionA2B,f1A2B = metrics_triplet(labelsA,pred_A2B,title='A2B')
                     recallB2A, precisionB2A,f1B2A = metrics_triplet(labelsB,pred_B2A,title='B2A')
-
+                    checkpoint2.save(G_optimizer.iterations.numpy())
                     #neptune.log_metric('f1_A',f1A)
                     #neptune.log_metric('f1_B',f1B)
                     #neptune.log_metric('f1_A2B',f1A2B)
@@ -405,6 +439,10 @@ with train_summary_writer.as_default():
                     ##neptune.log_metric('f1_top1_')
                     ##neptune.log_metric('f1_top1_')
                     ##neptune.log_metric('f1_top1_')
-                    checkpoint.save(ep)
+                    #checkpoint.save(100000)
+                    
+                #if G_optimizer.iterations.numpy() >12000 and G_optimizer.iterations.numpy()%200==0 and G_optimizer.iterations.numpy() <20000 == 0:
+                #    checkpoint2.save(G_optimizer.iterations.numpy())
+                    
             # save checkpoint
-            checkpoint.save(ep)
+            #checkpoint.save(100000)

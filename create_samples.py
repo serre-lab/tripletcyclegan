@@ -13,7 +13,8 @@ import module
 
 py.arg('--experiment_dir')
 py.arg('--batch_size', type=int, default=1)
-
+py.arg('--load_size', type=int, default=600)  
+py.arg('--crop_size', type=int, default=600)
 test_args = py.args()
 args = py.args_from_yaml(py.join(test_args.experiment_dir, 'settings.yml'))
 print(args)
@@ -25,9 +26,9 @@ args.__dict__.update(test_args.__dict__)
 # ==============================================================================
 
 # data'/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_fossils.csv'
- 
-A_test = pd.read_csv('/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/fossils_train_oscar_processed.csv')#'/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_fossils.csv')
-B_test = pd.read_csv('/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/leaves_train_oscar_processed.csv')#/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_leaves.csv')
+
+A_test = pd.read_csv('/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1.0/all_fossils_filtered_100.csv')#'/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_fossils.csv')
+B_test = pd.read_csv('/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1.0/all_leaves_filtered_100.csv')#/users/irodri15/scratch/Fossils/Experiments/softmax_triplet/datasets/gan_fossils_leaves/test_gan_leaves.csv')
 print(len(A_test))
 print(len(B_test))
 A_img_paths_test = list(A_test['file_name'])
@@ -72,13 +73,14 @@ print('saving leaves')
 save_dir = py.join(args.experiment_dir, 'samples_testing', 'Fossils2Leaves')
 py.mkdir(save_dir)
 i = 0
-for A in A_dataset_test:
-    A2B, A2B2A = sample_A2B(A)
-    for A_i, A2B_i, A2B2A_i in zip(A, A2B, A2B2A):
-        img = A2B_i.numpy() #np.concatenate([A_i.numpy(), A2B_i.numpy(), A2B2A_i.numpy()], axis=1)
-        im.imwrite(img, py.join(save_dir, A_img_paths_test[i].split('/')[-2]+'-'+py.name_ext(A_img_paths_test[i])))
-        i += 1
-    print(i)
+#for A in A_dataset_test:
+#    A2B, A2B2A = sample_A2B(A)
+#    for A_i, A2B_i, A2B2A_i in zip(A, A2B, A2B2A):
+#        img = A2B_i.numpy() #np.concatenate([A_i.numpy(), A2B_i.numpy(), A2B2A_i.numpy()], axis=1)
+#        im.imwrite(img, py.join(save_dir, A_img_paths_test[i].split('/')[-2]+'-'+py.name_ext(A_img_paths_test[i])))
+#        i += 1
+#    print(i)
+#    if i>10:continue
 print('saving fossils')
 save_dir = py.join(args.experiment_dir, 'samples_testing', 'Leaves2Fossils')
 py.mkdir(save_dir)
@@ -89,6 +91,8 @@ for B in B_dataset_test:
         img = B2A_i.numpy()#np.concatenate([B_i.numpy(), B2A_i.numpy(), B2A2B_i.numpy()], axis=1)
         im.imwrite(img, py.join(save_dir,B_img_paths_test[i].split('/')[-2]+'-'+py.name_ext(B_img_paths_test[i])))
         i += 1
+    if i>10: continue
+
 print(i)
 print('saving fossils')
 save_dir = py.join(args.experiment_dir, 'samples_testing', 'Leaves2Fossils3')

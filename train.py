@@ -16,7 +16,7 @@ import os
 
 
 os.environ["CUDA_VISIBLE_DEVICES"] = '2,3'
-tf.config.experimental.set_lms_enabled(True)
+#tf.config.experimental.set_lms_enabled(True)
 #neptune.set_project('Serre-Lab/paleo-ai')
 
 
@@ -25,13 +25,13 @@ tf.config.experimental.set_lms_enabled(True)
 # ==============================================================================
 
 py.arg('--outdir', default='/users/irodri15/scratch/Fossils/Experiments/CycleGan/checkpoints')
-py.arg('--train_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/fossils_train_oscar_processed.csv')
-py.arg('--train_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/leaves_train_oscar_processed.csv')
-py.arg('--test_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/fossils_test_oscar_processed.csv')
-py.arg('--test_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/leaves_test_oscar_processed.csv')
+py.arg('--train_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/cyclegan_cleaner/train_pnas_extant.csv')
+py.arg('--train_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/cyclegan_cleaner/train_pnas_extant.csv')
+py.arg('--test_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/cyclegan_cleaner/train_pnas_extant.csv')
+py.arg('--test_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/cyclegan_cleaner/train_pnas_extant.csv')
 py.arg('--experiment_name')
-py.arg('--load_size', type=int, default=750)  # load image to this size
-py.arg('--crop_size', type=int, default=748)  # then crop to this size
+py.arg('--load_size', type=int, default=600)  # load image to this size
+py.arg('--crop_size', type=int, default=600)  # then crop to this size
 py.arg('--batch_size', type=int, default=2)
 py.arg('--epochs', type=int, default=20)
 py.arg('--epoch_decay', type=int, default=50)  # epoch to start decaying learning rate
@@ -63,9 +63,9 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 A = pd.read_csv(args.train_datasetA)
 B = pd.read_csv(args.train_datasetB)
 print(B)
-A_img_paths = list(A['file_name']) #py.glob(py.join(args.datasets_dir, args.dataset, 'trainA'), '*.jpg')
+A_img_paths = list(A['pnas_oscar']) #py.glob(py.join(args.datasets_dir, args.dataset, 'trainA'), '*.jpg')
 #print(type(A_img_paths[0]))
-B_img_paths = list(B['file_name'])#py.glob(py.join(args.datasets_dir, args.dataset, 'trainB'), '*.jpg')
+B_img_paths = list(B['extant_oscar'])#py.glob(py.join(args.datasets_dir, args.dataset, 'trainB'), '*.jpg')
 A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False,shuffle=False,grayscale=args.grayscale)
 
 A2B_pool = data.ItemPool(args.pool_size)
@@ -74,8 +74,8 @@ B2A_pool = data.ItemPool(args.pool_size)
 
 A_test = pd.read_csv(args.test_datasetA)
 B_test = pd.read_csv(args.test_datasetB)
-A_img_paths_test = list(A_test['file_name'])#py.glob(py.join(args.datasets_dir, args.dataset, 'testA'), '*.jpg')
-B_img_paths_test = list(B_test['file_name'])#py.glob(py.join(args.datasets_dir, args.dataset, 'testB'), '*.jpg')
+A_img_paths_test = list(A_test['pnas_oscar'])#py.glob(py.join(args.datasets_dir, args.dataset, 'testA'), '*.jpg')
+B_img_paths_test = list(B_test['extant_oscar'])#py.glob(py.join(args.datasets_dir, args.dataset, 'testB'), '*.jpg')
 A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, args.batch_size, args.load_size, args.crop_size, training=False, grayscale=args.grayscale, repeat=True)
 
 

@@ -25,6 +25,7 @@ config = ConfigProto()
 config.gpu_options.allow_growth = True
 session = InteractiveSession(config=config)
 #os.environ["CUDA_VISIBLE_DEVICES"] = '2,3'
+
 tf.config.experimental.set_lms_enabled(True)
 neptune.set_project('Serre-Lab/paleo-ai')
 

@@ -19,13 +19,15 @@ from sklearn.metrics import classification_report, recall_score,precision_score,
 from tsne import save_tsne_grid
 from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
-
+#from tensorflow_large_model_support import LMS
+#lms_obj = LMS()
+#lms_obj.run() 
 
 #from tensorflow import ConfigProto
 #from tensorflow import InteractiveSession
-config = ConfigProto()
-config.gpu_options.allow_growth = True
-session = InteractiveSession(config=config)
+#config = ConfigProto()
+#config.gpu_options.allow_growth = True
+#session = InteractiveSession(config=config)
 #os.environ["CUDA_VISIBLE_DEVICES"] = '2,3'
 tf.config.experimental.set_lms_enabled(True)
 #neptune.set_project('Serre-Lab/paleo-ai')
@@ -36,30 +38,31 @@ tf.config.experimental.set_lms_enabled(True)
 # ==============================================================================
 
 py.arg('--outdir', default='/users/irodri15/data/irodri15/Fossils/Experiments/cyclegan/checkpoints/')
-py.arg('--train_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/fossils_train_oscar_processed.csv')
-py.arg('--train_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/leaves_train_oscar_processed.csv')
-py.arg('--test_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/fossils_test_oscar_processed.csv')
-py.arg('--test_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v1/leaves_test_oscar_processed.csv')
+
+py.arg('--train_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v3_resize/fossils_train.csv')
+py.arg('--train_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v3_resize/leaves_train.csv')
+py.arg('--test_datasetA', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v3_resize/fossils_test.csv')
+py.arg('--test_datasetB', default='/users/irodri15/data/irodri15/Fossils/Experiments/datasets/gan_fossils_leaves_v3_resize/leaves_test.csv')
 py.arg('--experiment_name')
 py.arg('--kernels_num', type=int, default=64)
 py.arg('--load_size', type=int, default=600)  # load image to this size
 py.arg('--crop_size', type=int, default=600)  # then crop to this size
 py.arg('--batch_size', type=int, default=1)
-py.arg('--batch_size_triplet', type=int, default=15)
+py.arg('--batch_size_triplet', type=int, default=9)
 py.arg('--epochs', type=int, default=200)
-py.arg('--epoch_decay', type=int, default=50)  # epoch to start decaying learning rate
-py.arg('--lr', type=float, default=0.0002)
+py.arg('--epoch_decay', type=int, default=20)  # epoch to start decaying learning rate
+py.arg('--lr', type=float, default=0.0001)
 py.arg('--beta_1', type=float, default=0.5)
 py.arg('--adversarial_loss_mode', default='lsgan', choices=['gan', 'hinge_v1', 'hinge_v2', 'lsgan', 'wgan'])
 py.arg('--gradient_penalty_mode', default='none', choices=['none', 'dragan', 'wgan-gp'])
 py.arg('--gradient_penalty_weight', type=float, default=1.0)
 py.arg('--cycle_loss_weight', type=float, default=10.0)
 py.arg('--identity_loss_weight', type=float, default=0.0)
-py.arg('--triplet_loss_weight', type=float, default=1.5)
+py.arg('--triplet_loss_weight', type=float, default=5.0)
 py.arg('--pool_size', type=int, default=50)  # pool size to store fake samples
 py.arg('--grayscale',type=bool,default= False)
 py.arg('--triplet_margin', type = float, default= 1.0)
-py.arg('--evaluate_every', type = int, default= 500)
+py.arg('--evaluate_every', type = int, default= 1000)
 args = py.args()
 
 params = vars(args)
@@ -69,7 +72,7 @@ params = vars(args)
 output_dir = os.path.join(args.outdir,args.experiment_name)#py.join('output', args.outdir)
 print(output_dir)
 os.makedirs(output_dir,exist_ok=True)
-
+os.makedirs(os.path.join(output_dir,'checkpoints'),exist_ok=True)
 # save settings
 print(output_dir)
 py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
@@ -97,7 +100,9 @@ B_img_paths_test = list(B_test['file_name'])#py.glob(py.join(args.datasets_dir, 
 B_test_labels = list(B_test['label'])
 with tf.device('/device:GPU:0'):
     A_B_dataset_test, _ = data.make_zip_dataset3(A_img_paths_test,A_test_labels, B_img_paths_test,B_test_labels, args.batch_size, args.load_size, args.crop_size, training=False, grayscale=args.grayscale, repeat=True)
+    #A_B_dataset_test, len_dataset = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False,shuffle=False,grayscale=args.grayscale)
     A_B_dataset, len_dataset = data.make_zip_dataset3(A_img_paths,A_labels, B_img_paths,B_labels, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False,shuffle=False,grayscale=args.grayscale)
+    #A_B_dataset,len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False,shuffle=False,grayscale=args.grayscale)
     A2B_pool = data.ItemPool(args.pool_size)
     B2A_pool = data.ItemPool(args.pool_size)
 
